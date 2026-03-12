@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.felix.hormal.audio.Ear
 import com.felix.hormal.audio.ToneGenerator
@@ -27,6 +28,11 @@ class TestActivity : AppCompatActivity() {
     private var testRunning = false
     private var waitingForResponse = false
 
+    // Counter-check state: detect false clicks during silent intervals
+    private var isCounterCheckActive = false
+    private var falseClickCount = 0
+    private var completedSinceLastCheck = 0
+
     // Measurement series: each entry is "ear,freq,dB,heard" (e.g. "L,250,40,1")
     private val measurements = ArrayList<String>()
 
@@ -34,13 +40,24 @@ class TestActivity : AppCompatActivity() {
     private val RESPONSE_TIMEOUT_MS = 3000L
     private val INTER_TONE_DELAY_MS = 500L
 
+    /** Duration of the silent counter-check window (longer pause with no tone). */
+    private val COUNTER_CHECK_DURATION_MS = 5000L
+
+    /** Insert a silent counter-check after every this many completed frequencies. */
+    private val CHECK_INTERVAL = 2
+
+    /** Abort the test after this many false clicks during silent intervals. */
+    private val MAX_FALSE_CLICKS = 3
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityTestBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         binding.btnHeard.setOnClickListener {
-            if (waitingForResponse) {
+            if (isCounterCheckActive) {
+                onFalseClick()
+            } else if (waitingForResponse) {
                 onHeardResponse()
             }
         }
@@ -55,6 +72,9 @@ class TestActivity : AppCompatActivity() {
         testingLeftEar = true
         currentDb = 40
         correctResponses = 0
+        falseClickCount = 0
+        completedSinceLastCheck = 0
+        isCounterCheckActive = false
         testRunning = true
         leftThresholds.fill(40)
         rightThresholds.fill(40)
@@ -140,6 +160,45 @@ class TestActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Called when the user presses the button during a silent counter-check interval.
+     * This is a false click — no tone was playing.
+     */
+    private fun onFalseClick() {
+        if (!testRunning) return
+        handler.removeCallbacks(counterCheckTimeoutRunnable)
+        isCounterCheckActive = false
+        waitingForResponse = false
+        falseClickCount++
+
+        if (falseClickCount >= MAX_FALSE_CLICKS) {
+            showTooManyFalseClicksDialog()
+        } else {
+            showFalseClickWarning()
+        }
+    }
+
+    /**
+     * Starts a silent counter-check: the button remains visible and active for
+     * [COUNTER_CHECK_DURATION_MS] but no tone is played. A click during this
+     * window is counted as a false response.
+     */
+    private fun playCounterCheck() {
+        if (!testRunning) return
+        isCounterCheckActive = true
+        waitingForResponse = true
+        handler.postDelayed(counterCheckTimeoutRunnable, COUNTER_CHECK_DURATION_MS)
+    }
+
+    private val counterCheckTimeoutRunnable = Runnable {
+        if (isCounterCheckActive) {
+            // No false click occurred — continue with the next tone
+            isCounterCheckActive = false
+            waitingForResponse = false
+            playNextTone()
+        }
+    }
+
     private fun recordThreshold(noResponse: Boolean = false) {
         val threshold = if (noResponse) 99 else currentDb
         if (testingLeftEar) {
@@ -155,20 +214,56 @@ class TestActivity : AppCompatActivity() {
         freqIndex++
         correctResponses = 0
         currentDb = 40
+        completedSinceLastCheck++
 
         if (freqIndex >= FREQUENCIES.size) {
             if (testingLeftEar) {
                 // Switch to right ear
                 testingLeftEar = false
                 freqIndex = 0
+                completedSinceLastCheck = 0
                 handler.postDelayed({ playNextTone() }, 1500)
             } else {
                 // Test complete
                 finishTest()
             }
+        } else if (completedSinceLastCheck >= CHECK_INTERVAL) {
+            // Insert a silent counter-check before the next frequency
+            completedSinceLastCheck = 0
+            handler.postDelayed({ playCounterCheck() }, 1500)
         } else {
             handler.postDelayed({ playNextTone() }, 1500)
         }
+    }
+
+    /** Shows a warning dialog after a false click; test resumes when user dismisses it. */
+    private fun showFalseClickWarning() {
+        val remaining = MAX_FALSE_CLICKS - falseClickCount
+        val message = resources.getQuantityString(
+            R.plurals.counter_check_warning_message, remaining, remaining
+        )
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.counter_check_warning_title))
+            .setMessage(message)
+            .setPositiveButton(getString(R.string.ok)) { dialog, _ ->
+                dialog.dismiss()
+                handler.postDelayed({ playNextTone() }, INTER_TONE_DELAY_MS)
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    /** Shows an abort dialog after too many false clicks; pressing OK exits the activity. */
+    private fun showTooManyFalseClicksDialog() {
+        testRunning = false
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.counter_check_abort_title))
+            .setMessage(getString(R.string.counter_check_abort_message))
+            .setPositiveButton(getString(R.string.ok)) { _, _ ->
+                finish()
+            }
+            .setCancelable(false)
+            .show()
     }
 
     private fun finishTest() {
