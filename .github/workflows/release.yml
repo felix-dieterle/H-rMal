@@ -35,13 +35,13 @@ jobs:
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
           echo "App version: $VERSION_NAME (Build $BUILD_NUMBER)"
 
-      - name: Build release APK
-        run: ./gradlew assembleRelease
+      - name: Build APK
+        run: ./gradlew assembleDebug
 
       - name: Rename APK
         run: |
           APK_NAME="H-rMal-v${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.build_number }}.apk"
-          mv app/build/outputs/apk/release/app-release-unsigned.apk "$APK_NAME"
+          mv app/build/outputs/apk/debug/app-debug.apk "$APK_NAME"
           echo "APK renamed to: $APK_NAME"
 
       - name: Create GitHub Release
