@@ -101,12 +101,13 @@ class TestActivity : AppCompatActivity() {
 
         correctResponses++
 
-        if (correctResponses >= 2) {
-            // Threshold found at this level
+        val nextDb = (currentDb - 10).coerceAtLeast(-10)
+        if (nextDb == currentDb) {
+            // Already at the minimum level (-10 dB HL); record threshold here
             recordThreshold()
         } else {
-            // Decrease 10 dB and try again
-            currentDb = (currentDb - 10).coerceAtLeast(-10)
+            // Keep descending to find the true minimum hearing threshold
+            currentDb = nextDb
             handler.postDelayed({ playNextTone() }, INTER_TONE_DELAY_MS)
         }
     }
