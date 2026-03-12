@@ -31,6 +31,10 @@ class TestActivity : AppCompatActivity() {
     private var testRunning = false
     private var waitingForResponse = false
 
+    // Confirmation-check state: re-test the threshold with a random pause first
+    private var isConfirmationActive = false   // true while confirmation tone is playing
+    private var pendingConfirmationDb = 0      // dB level to re-verify
+
     // Counter-check state: detect false clicks during silent intervals
     private var isCounterCheckActive = false
     private var falseClickCount = 0
@@ -52,6 +56,12 @@ class TestActivity : AppCompatActivity() {
     /** Abort the test after this many false clicks during silent intervals. */
     private val MAX_FALSE_CLICKS = 3
 
+    /** Step size for the staircase algorithm in dB HL. */
+    private val STEP_DB = 10
+
+    /** Maximum measurable level in dB HL. */
+    private val MAX_DB = 90
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityTestBinding.inflate(layoutInflater)
@@ -61,8 +71,13 @@ class TestActivity : AppCompatActivity() {
             if (isCounterCheckActive) {
                 onFalseClick()
             } else if (waitingForResponse) {
-                onHeardResponse()
+                if (isConfirmationActive) {
+                    onConfirmationHeard()
+                } else {
+                    onHeardResponse()
+                }
             }
+            // Clicks during the pre-confirmation pause (both flags false) are silently ignored
         }
 
         binding.btnStartTest.setOnClickListener {
@@ -79,6 +94,8 @@ class TestActivity : AppCompatActivity() {
         falseClickCount = 0
         completedSinceLastCheck = 0
         isCounterCheckActive = false
+        isConfirmationActive = false
+        pendingConfirmationDb = 0
         testRunning = true
         leftThresholds.fill(40)
         rightThresholds.fill(40)
@@ -212,6 +229,78 @@ class TestActivity : AppCompatActivity() {
             rightThresholds[freqIndex] = threshold
         }
 
+        if (!noResponse) {
+            // Re-verify the boundary threshold: play the tone once more after a
+            // random pause to ensure the first response was genuine.
+            pendingConfirmationDb = threshold
+            scheduleConfirmationCheck()
+        } else {
+            moveToNext()
+        }
+    }
+
+    /**
+     * Schedules a boundary re-verification: a random silent pause (2–4 s) followed
+     * by playing the tone at [pendingConfirmationDb] once more.  Button clicks during
+     * the pause are silently ignored (both [waitingForResponse] and
+     * [isCounterCheckActive] are false), which prevents a reflex press from
+     * inadvertently confirming the threshold.
+     */
+    private fun scheduleConfirmationCheck() {
+        waitingForResponse = false
+        isCounterCheckActive = false
+        val pauseMs = (2000L..4000L).random()
+        handler.postDelayed(confirmationPrePauseRunnable, pauseMs)
+    }
+
+    private val confirmationPrePauseRunnable = Runnable {
+        if (testRunning) playConfirmationTone()
+    }
+
+    private fun playConfirmationTone() {
+        if (!testRunning) return
+        isConfirmationActive = true
+        waitingForResponse = true
+        val freq = FREQUENCIES[freqIndex]
+        val ear = if (testingLeftEar) Ear.LEFT else Ear.RIGHT
+        updateStatus()
+        toneGen.playTone(freq, pendingConfirmationDb, TONE_DURATION_MS.toInt(), ear)
+        handler.postDelayed(confirmationNoResponseRunnable, RESPONSE_TIMEOUT_MS)
+    }
+
+    private val confirmationNoResponseRunnable = Runnable {
+        if (waitingForResponse && isConfirmationActive) {
+            onConfirmationNoResponse()
+        }
+    }
+
+    /** User confirmed the threshold during the re-verification tone. */
+    private fun onConfirmationHeard() {
+        handler.removeCallbacks(confirmationNoResponseRunnable)
+        waitingForResponse = false
+        isConfirmationActive = false
+        toneGen.stop()
+        val earCode = if (testingLeftEar) "L" else "R"
+        measurements.add("$earCode,${FREQUENCIES[freqIndex]},$pendingConfirmationDb,1")
+        // Threshold confirmed – keep the previously stored value
+        moveToNext()
+    }
+
+    /**
+     * User did not respond during the re-verification tone.  Raise the stored
+     * threshold by one step (10 dB) to reflect that the first response was not
+     * reproducible.
+     */
+    private fun onConfirmationNoResponse() {
+        waitingForResponse = false
+        isConfirmationActive = false
+        toneGen.stop()
+        val earCode = if (testingLeftEar) "L" else "R"
+        measurements.add("$earCode,${FREQUENCIES[freqIndex]},$pendingConfirmationDb,0")
+        // Threshold not confirmed → raise by one step
+        val adjusted = (pendingConfirmationDb + STEP_DB).coerceAtMost(MAX_DB)
+        if (testingLeftEar) leftThresholds[freqIndex] = adjusted
+        else rightThresholds[freqIndex] = adjusted
         moveToNext()
     }
 
