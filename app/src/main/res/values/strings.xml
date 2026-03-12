@@ -32,4 +32,12 @@
     <string name="not_heard_rate">Not heard: %1$d (%2$d%%)</string>
     <string name="per_frequency_label">Per frequency (✓ heard / ✗ not heard):</string>
     <string name="freq_breakdown">%1$s Hz  |  L: %2$d✓ %3$d✗  |  R: %4$d✓ %5$d✗</string>
+    <string name="ok">OK</string>
+    <string name="counter_check_warning_title">Careful!</string>
+    <string name="counter_check_abort_title">Test Stopped</string>
+    <string name="counter_check_abort_message">The button was pressed too many times without a tone being played. Please try the test again and only press the button when you truly hear a sound.</string>
+    <plurals name="counter_check_warning_message">
+        <item quantity="one">Please only press the button when you actually hear a tone! You have 1 more chance before the test is stopped.</item>
+        <item quantity="other">Please only press the button when you actually hear a tone! You have %d more chances before the test is stopped.</item>
+    </plurals>
 </resources>
