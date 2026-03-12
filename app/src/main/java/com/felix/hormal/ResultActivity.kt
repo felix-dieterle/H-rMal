@@ -48,6 +48,7 @@ class ResultActivity : AppCompatActivity() {
         setupAgeSpinner(resultAgeGroupName)
         setupChart()
         showMeasurementStats()
+        showRecommendation()
         if (!readOnly) {
             setupSaveButton()
             resultName?.let { binding.etName.setText(it) }
@@ -71,6 +72,7 @@ class ResultActivity : AppCompatActivity() {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
                 selectedAgeGroup = ageGroups[pos]
                 updateChart()
+                showRecommendation()
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
@@ -212,6 +214,44 @@ class ResultActivity : AppCompatActivity() {
         }
 
         binding.tvMeasurementStats.text = sb.toString()
+    }
+
+    /**
+     * Computes and displays a recommendation based on the measured thresholds
+     * compared to the [selectedAgeGroup] norms.
+     *
+     * Classification logic:
+     * - **Specialist recommended**: ≥ 2 frequencies where at least one ear has no
+     *   response (threshold == 99) OR exceeds the critical norm for the age group.
+     * - **Monitor**: ≥ 2 frequencies where the worse ear exceeds the average norm.
+     * - **Normal**: Everything within the average range.
+     */
+    private fun showRecommendation() {
+        val thresholds = AGE_THRESHOLDS[selectedAgeGroup]!!
+
+        var aboveCritical = 0
+        var aboveAverage = 0
+        var noResponseCount = 0
+
+        for (i in FREQUENCIES.indices) {
+            val leftDb = leftThresholds[i]
+            val rightDb = rightThresholds[i]
+
+            if (leftDb == 99 || rightDb == 99) {
+                noResponseCount++
+            } else {
+                val worstEar = maxOf(leftDb, rightDb)
+                if (worstEar > thresholds.critical[i]) aboveCritical++
+                else if (worstEar > thresholds.average[i]) aboveAverage++
+            }
+        }
+
+        val text = when {
+            noResponseCount >= 2 || aboveCritical >= 2 -> getString(R.string.recommendation_specialist)
+            aboveCritical >= 1 || aboveAverage >= 2 -> getString(R.string.recommendation_monitor)
+            else -> getString(R.string.recommendation_good)
+        }
+        binding.tvRecommendation.text = text
     }
 
     private fun setupSaveButton() {

@@ -18,6 +18,9 @@ class TestActivity : AppCompatActivity() {
     private val toneGen = ToneGenerator()
     private val handler = Handler(Looper.getMainLooper())
 
+    // Privacy mode: when true, frequency and dB info are hidden during the test
+    private var hideTestInfo = true
+
     // State
     private var freqIndex = 0         // current index into FREQUENCIES
     private var testingLeftEar = true
@@ -63,6 +66,7 @@ class TestActivity : AppCompatActivity() {
         }
 
         binding.btnStartTest.setOnClickListener {
+            hideTestInfo = binding.cbHideInfo.isChecked
             startTest()
         }
     }
@@ -81,6 +85,7 @@ class TestActivity : AppCompatActivity() {
         measurements.clear()
 
         binding.btnStartTest.visibility = View.GONE
+        binding.cbHideInfo.visibility = View.GONE
         binding.btnHeard.visibility = View.VISIBLE
         binding.tvInstructions.text = getString(R.string.test_instructions)
 
@@ -272,27 +277,55 @@ class TestActivity : AppCompatActivity() {
         toneGen.stop()
 
         binding.btnHeard.visibility = View.GONE
-        binding.tvStatus.text = getString(R.string.test_complete)
+        binding.tvStatus.text = getString(R.string.test_complete_with_jingle)
 
-        val intent = Intent(this, ResultActivity::class.java).apply {
-            putExtra("LEFT_THRESHOLDS", leftThresholds)
-            putExtra("RIGHT_THRESHOLDS", rightThresholds)
-            putStringArrayListExtra("MEASUREMENTS", measurements)
+        playEndJingle {
+            val intent = Intent(this, ResultActivity::class.java).apply {
+                putExtra("LEFT_THRESHOLDS", leftThresholds)
+                putExtra("RIGHT_THRESHOLDS", rightThresholds)
+                putStringArrayListExtra("MEASUREMENTS", measurements)
+            }
+            startActivity(intent)
+            finish()
         }
-        startActivity(intent)
-        finish()
+    }
+
+    /**
+     * Plays a short ascending three-note jingle on both ears to signal that the
+     * test has finished, then invokes [onFinished] after all notes have played.
+     */
+    private fun playEndJingle(onFinished: () -> Unit) {
+        // Three ascending tones: 800 Hz → 1000 Hz → 1200 Hz
+        val notes = listOf(
+            Triple(800, 60, 250),
+            Triple(1000, 60, 250),
+            Triple(1200, 60, 400)
+        )
+        var delay = 0L
+        for ((freq, db, duration) in notes) {
+            handler.postDelayed({
+                toneGen.playTone(freq, db, duration, Ear.BOTH)
+            }, delay)
+            delay += (duration + 100).toLong()
+        }
+        handler.postDelayed({ onFinished() }, delay)
     }
 
     private fun updateStatus() {
-        val freq = FREQUENCIES[freqIndex]
-        val earLabel = if (testingLeftEar) getString(R.string.left_ear) else getString(R.string.right_ear)
-        binding.tvStatus.text = getString(R.string.test_status, earLabel, freq, currentDb)
-        binding.tvProgress.text = getString(
-            R.string.test_progress,
-            freqIndex + 1,
-            FREQUENCIES.size,
-            if (testingLeftEar) 1 else 2
-        )
+        if (hideTestInfo) {
+            binding.tvStatus.text = getString(R.string.test_info_hidden)
+            binding.tvProgress.text = ""
+        } else {
+            val freq = FREQUENCIES[freqIndex]
+            val earLabel = if (testingLeftEar) getString(R.string.left_ear) else getString(R.string.right_ear)
+            binding.tvStatus.text = getString(R.string.test_status, earLabel, freq, currentDb)
+            binding.tvProgress.text = getString(
+                R.string.test_progress,
+                freqIndex + 1,
+                FREQUENCIES.size,
+                if (testingLeftEar) 1 else 2
+            )
+        }
     }
 
     override fun onDestroy() {

@@ -36,6 +36,13 @@
     <string name="counter_check_warning_title">Careful!</string>
     <string name="counter_check_abort_title">Test Stopped</string>
     <string name="counter_check_abort_message">The button was pressed too many times without a tone being played. Please try the test again and only press the button when you truly hear a sound.</string>
+    <string name="hide_test_info_label">Hide frequency and volume during test (recommended for children)</string>
+    <string name="test_info_hidden">Listening…</string>
+    <string name="test_complete_with_jingle">Test complete! Please wait…</string>
+    <string name="recommendation_title">Recommendation</string>
+    <string name="recommendation_good">✅ Your hearing appears to be within the normal range for your age group. No immediate action is needed.</string>
+    <string name="recommendation_monitor">⚠️ Some hearing thresholds are slightly elevated above the average for your age group. Consider having your hearing checked regularly.</string>
+    <string name="recommendation_specialist">🔴 Several thresholds exceed the critical range for your age group. We recommend consulting an audiologist or hearing specialist for a professional evaluation.</string>
     <plurals name="counter_check_warning_message">
         <item quantity="one">Please only press the button when you actually hear a tone! You have 1 more chance before the test is stopped.</item>
         <item quantity="other">Please only press the button when you actually hear a tone! You have %d more chances before the test is stopped.</item>
