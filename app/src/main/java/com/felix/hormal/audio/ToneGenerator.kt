@@ -16,7 +16,10 @@ class ToneGenerator {
 
     companion object {
         const val SAMPLE_RATE = 44100
-        private const val DB_REFERENCE = 90.0   // 90 dB HL = amplitude 1.0
+        // Maps 90 dB HL to amplitude 1.0 (full-scale digital output).
+        // Lower dB HL values produce proportionally quieter tones via the standard dB-to-amplitude formula.
+        // Actual dB HL calibration requires hardware-specific headphone output levels per ISO 8253-1.
+        private const val DB_REFERENCE = 90.0
     }
 
     /**

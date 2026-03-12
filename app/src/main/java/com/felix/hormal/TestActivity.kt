@@ -27,7 +27,7 @@ class TestActivity : AppCompatActivity() {
     private var testRunning = false
     private var waitingForResponse = false
 
-    private val TONE_DURATION_MS = 1500
+    private val TONE_DURATION_MS = 1500L
     private val RESPONSE_TIMEOUT_MS = 3000L
     private val INTER_TONE_DELAY_MS = 500L
 
@@ -72,7 +72,7 @@ class TestActivity : AppCompatActivity() {
 
         updateStatus()
 
-        toneGen.playTone(freq, currentDb, TONE_DURATION_MS, ear)
+        toneGen.playTone(freq, currentDb, TONE_DURATION_MS.toInt(), ear)
         waitingForResponse = true
 
         // Schedule no-response timeout

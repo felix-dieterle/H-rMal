@@ -6,7 +6,9 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.felix.hormal.data.AppDatabase
 import com.felix.hormal.data.HearingResult
@@ -55,16 +57,14 @@ class HistoryActivity : AppCompatActivity() {
     }
 }
 
+private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<HearingResult>() {
+    override fun areItemsTheSame(oldItem: HearingResult, newItem: HearingResult) = oldItem.id == newItem.id
+    override fun areContentsTheSame(oldItem: HearingResult, newItem: HearingResult) = oldItem == newItem
+}
+
 class ResultsAdapter(
     private val onClick: (HearingResult) -> Unit
-) : RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
-
-    private var items: List<HearingResult> = emptyList()
-
-    fun submitList(list: List<HearingResult>) {
-        items = list
-        notifyDataSetChanged()
-    }
+) : ListAdapter<HearingResult, ResultsAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     inner class ViewHolder(private val binding: ItemResultBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(result: HearingResult) {
@@ -75,11 +75,10 @@ class ResultsAdapter(
             binding.tvResultAge.text = result.ageGroup
                 .split("_")
                 .joinToString(" ") { word ->
-                    // Keep numeric parts and dashes as-is, capitalize letters
                     if (word.all { it.isDigit() || it == '-' }) word
                     else word.lowercase().replaceFirstChar { it.uppercase() }
                 }
-                .replace(Regex("(\\d) (\\d)"), "$1-$2")  // join digit groups with dash
+                .replace(Regex("(\\d) (\\d)"), "$1-$2")
             binding.root.setOnClickListener { onClick(result) }
         }
     }
@@ -90,8 +89,6 @@ class ResultsAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(items[position])
+        holder.bind(getItem(position))
     }
-
-    override fun getItemCount() = items.size
 }

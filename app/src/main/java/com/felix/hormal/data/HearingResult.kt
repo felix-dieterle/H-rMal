@@ -16,8 +16,15 @@ data class HearingResult(
     val rightEar: String,  // JSON-encoded IntArray
     val timestamp: Long = System.currentTimeMillis()
 ) {
-    fun leftEarValues(): IntArray = leftEar.trim('[', ']').split(",").map { it.trim().toInt() }.toIntArray()
-    fun rightEarValues(): IntArray = rightEar.trim('[', ']').split(",").map { it.trim().toInt() }.toIntArray()
+    fun leftEarValues(): IntArray = parseEncodedArray(leftEar)
+    fun rightEarValues(): IntArray = parseEncodedArray(rightEar)
+
+    private fun parseEncodedArray(encoded: String): IntArray =
+        try {
+            encoded.trim('[', ']').split(",").map { it.trim().toInt() }.toIntArray()
+        } catch (e: NumberFormatException) {
+            IntArray(6) { 40 } // fallback to default thresholds if data is corrupt
+        }
 
     companion object {
         fun encodeArray(arr: IntArray): String = "[${arr.joinToString(",")}]"
