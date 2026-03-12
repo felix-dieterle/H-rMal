@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">H-rMal</string>
+    <string name="app_subtitle">Hearing Test App</string>
+    <string name="start_test">🎧 Start Hearing Test</string>
+    <string name="view_history">View Previous Results</string>
+    <string name="ready_to_start">Ready for Hearing Test</string>
+    <string name="start_instructions">Press Begin to start the test.\nFollow the instructions carefully.</string>
+    <string name="begin">Begin Test</string>
+    <string name="test_instructions">Press the button whenever you hear a tone.</string>
+    <string name="heard_it">I hear it!</string>
+    <string name="left_ear">Left Ear</string>
+    <string name="right_ear">Right Ear</string>
+    <string name="test_status">%1$s — %2$d Hz @ %3$d dB</string>
+    <string name="test_progress">Frequency %1$d/%2$d  |  Ear %3$d/2</string>
+    <string name="test_complete">Test complete! Showing results…</string>
+    <string name="results_title">Hearing Test Results</string>
+    <string name="age_group_label">Select age group for comparison:</string>
+    <string name="chart_legend">● Left ear  |  ● Right ear  |  - - Very Good  |  - - Average  |  - - Critical</string>
+    <string name="save_result_label">Save result</string>
+    <string name="enter_name">Enter your name</string>
+    <string name="save_result">💾 Save Result</string>
+    <string name="name_required">Please enter a name</string>
+    <string name="result_saved">Result saved!</string>
+    <string name="saved">Saved ✓</string>
+    <string name="history_title">Saved Results</string>
+    <string name="threshold_very_good">Very Good</string>
+    <string name="threshold_average">Average</string>
+    <string name="threshold_critical">Critical</string>
+</resources>
