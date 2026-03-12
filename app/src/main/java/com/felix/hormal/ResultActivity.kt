@@ -23,6 +23,7 @@ class ResultActivity : AppCompatActivity() {
     private var rightThresholds = IntArray(6) { 40 }
     private var selectedAgeGroup = AgeGroup.YOUNG_ADULT_18_35
     private var readOnly = false
+    private var measurements = ArrayList<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,6 +35,7 @@ class ResultActivity : AppCompatActivity() {
         leftThresholds = intent.getIntArrayExtra("LEFT_THRESHOLDS") ?: IntArray(6) { 40 }
         rightThresholds = intent.getIntArrayExtra("RIGHT_THRESHOLDS") ?: IntArray(6) { 40 }
         readOnly = intent.getBooleanExtra("READ_ONLY", false)
+        measurements = intent.getStringArrayListExtra("MEASUREMENTS") ?: ArrayList()
 
         val resultName = intent.getStringExtra("RESULT_NAME")
         val resultAgeGroupName = intent.getStringExtra("RESULT_AGE_GROUP")
@@ -45,6 +47,7 @@ class ResultActivity : AppCompatActivity() {
 
         setupAgeSpinner(resultAgeGroupName)
         setupChart()
+        showMeasurementStats()
         if (!readOnly) {
             setupSaveButton()
             resultName?.let { binding.etName.setText(it) }
@@ -179,6 +182,38 @@ class ResultActivity : AppCompatActivity() {
         chart.invalidate()
     }
 
+    private fun showMeasurementStats() {
+        if (measurements.isEmpty()) {
+            binding.measurementStatsSection.visibility = View.GONE
+            return
+        }
+        binding.measurementStatsSection.visibility = View.VISIBLE
+
+        val total = measurements.size
+        val heardCount = measurements.count { it.endsWith(",1") }
+        val notHeardCount = total - heardCount
+        val heardPct = if (total > 0) (heardCount * 100.0 / total).toInt() else 0
+
+        val sb = StringBuilder()
+        sb.append(getString(R.string.total_measurements, total)).append("\n")
+        sb.append(getString(R.string.heard_rate, heardCount, heardPct)).append("\n")
+        sb.append(getString(R.string.not_heard_rate, notHeardCount, 100 - heardPct)).append("\n\n")
+        sb.append(getString(R.string.per_frequency_label)).append("\n")
+
+        FREQUENCIES.forEach { freq ->
+            val freqLabel = if (freq >= 1000) "${freq / 1000}k" else "$freq"
+            val lEntries = measurements.filter { it.startsWith("L,$freq,") }
+            val rEntries = measurements.filter { it.startsWith("R,$freq,") }
+            val lHeard = lEntries.count { it.endsWith(",1") }
+            val lNotHeard = lEntries.size - lHeard
+            val rHeard = rEntries.count { it.endsWith(",1") }
+            val rNotHeard = rEntries.size - rHeard
+            sb.append(getString(R.string.freq_breakdown, freqLabel, lHeard, lNotHeard, rHeard, rNotHeard)).append("\n")
+        }
+
+        binding.tvMeasurementStats.text = sb.toString()
+    }
+
     private fun setupSaveButton() {
         binding.btnSave.setOnClickListener {
             val name = binding.etName.text.toString().trim()
@@ -191,7 +226,8 @@ class ResultActivity : AppCompatActivity() {
                 name = name,
                 ageGroup = selectedAgeGroup.name,
                 leftEar = HearingResult.encodeArray(leftThresholds),
-                rightEar = HearingResult.encodeArray(rightThresholds)
+                rightEar = HearingResult.encodeArray(rightThresholds),
+                measurements = HearingResult.encodeMeasurements(measurements)
             )
 
             lifecycleScope.launch {

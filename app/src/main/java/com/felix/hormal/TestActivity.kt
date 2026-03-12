@@ -27,6 +27,9 @@ class TestActivity : AppCompatActivity() {
     private var testRunning = false
     private var waitingForResponse = false
 
+    // Measurement series: each entry is "ear,freq,dB,heard" (e.g. "L,250,40,1")
+    private val measurements = ArrayList<String>()
+
     private val TONE_DURATION_MS = 1500L
     private val RESPONSE_TIMEOUT_MS = 3000L
     private val INTER_TONE_DELAY_MS = 500L
@@ -53,6 +56,9 @@ class TestActivity : AppCompatActivity() {
         currentDb = 40
         correctResponses = 0
         testRunning = true
+        leftThresholds.fill(40)
+        rightThresholds.fill(40)
+        measurements.clear()
 
         binding.btnStartTest.visibility = View.GONE
         binding.btnHeard.visibility = View.VISIBLE
@@ -89,6 +95,10 @@ class TestActivity : AppCompatActivity() {
         handler.removeCallbacks(noResponseRunnable)
         waitingForResponse = false
         toneGen.stop()
+
+        val earCode = if (testingLeftEar) "L" else "R"
+        measurements.add("$earCode,${FREQUENCIES[freqIndex]},$currentDb,1")
+
         correctResponses++
 
         if (correctResponses >= 2) {
@@ -104,14 +114,28 @@ class TestActivity : AppCompatActivity() {
     private fun onNoResponse() {
         waitingForResponse = false
         toneGen.stop()
+
+        val earCode = if (testingLeftEar) "L" else "R"
+        measurements.add("$earCode,${FREQUENCIES[freqIndex]},$currentDb,0")
+
+        val hadPriorResponse = correctResponses > 0
         correctResponses = 0
 
-        if (currentDb >= 90) {
-            // No hearing found at max level; mark as 99 (no response)
-            recordThreshold(noResponse = true)
-        } else {
-            currentDb = (currentDb + 10).coerceAtMost(90)
-            handler.postDelayed({ playNextTone() }, INTER_TONE_DELAY_MS)
+        when {
+            hadPriorResponse -> {
+                // User heard at the level above (currentDb + 10) but not at this lower level.
+                // Restore to the confirmed level and record it as the threshold.
+                currentDb = (currentDb + 10).coerceAtMost(90)
+                recordThreshold()
+            }
+            currentDb >= 90 -> {
+                // No hearing found at max level; mark as 99 (no response)
+                recordThreshold(noResponse = true)
+            }
+            else -> {
+                currentDb = (currentDb + 10).coerceAtMost(90)
+                handler.postDelayed({ playNextTone() }, INTER_TONE_DELAY_MS)
+            }
         }
     }
 
@@ -157,6 +181,7 @@ class TestActivity : AppCompatActivity() {
         val intent = Intent(this, ResultActivity::class.java).apply {
             putExtra("LEFT_THRESHOLDS", leftThresholds)
             putExtra("RIGHT_THRESHOLDS", rightThresholds)
+            putStringArrayListExtra("MEASUREMENTS", measurements)
         }
         startActivity(intent)
         finish()

@@ -36,6 +36,7 @@ class HistoryActivity : AppCompatActivity() {
                 putExtra("RIGHT_THRESHOLDS", result.rightEarValues())
                 putExtra("RESULT_NAME", result.name)
                 putExtra("RESULT_AGE_GROUP", result.ageGroup)
+                putStringArrayListExtra("MEASUREMENTS", result.measurementList())
                 putExtra("READ_ONLY", true)
             }
             startActivity(intent)
