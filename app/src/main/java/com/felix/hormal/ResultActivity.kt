@@ -114,7 +114,7 @@ class ResultActivity : AppCompatActivity() {
         val thresholds = AGE_THRESHOLDS[selectedAgeGroup]!!
 
         // Left ear entries (blue circles)
-        val leftEntries = leftThresholds.mapIndexedNotNull { i, v ->
+        val leftEntries = leftThresholds.toList().mapIndexedNotNull { i, v ->
             if (v <= 90) Entry(i.toFloat(), v.toFloat()) else null
         }
         val leftDataSet = LineDataSet(leftEntries, getString(R.string.left_ear)).apply {
@@ -127,7 +127,7 @@ class ResultActivity : AppCompatActivity() {
         }
 
         // Right ear entries (red)
-        val rightEntries = rightThresholds.mapIndexedNotNull { i, v ->
+        val rightEntries = rightThresholds.toList().mapIndexedNotNull { i, v ->
             if (v <= 90) Entry(i.toFloat(), v.toFloat()) else null
         }
         val rightDataSet = LineDataSet(rightEntries, getString(R.string.right_ear)).apply {
