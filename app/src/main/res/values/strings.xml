@@ -33,6 +33,11 @@
     <string name="per_frequency_label">Per frequency (✓ heard / ✗ not heard):</string>
     <string name="freq_breakdown">%1$s Hz  |  L: %2$d✓ %3$d✗  |  R: %4$d✓ %5$d✗</string>
     <string name="ok">OK</string>
+    <string name="disclaimer_title">⚠️ Important Notice</string>
+    <string name="disclaimer_message">This app performs a basic hearing screening only and is not a substitute for professional medical evaluation.\n\nResults may be affected by device quality, ambient noise, headphone type, and other factors. H-rMal cannot diagnose hearing loss or any other medical condition.\n\nIf you have concerns about your hearing, please consult a qualified audiologist or ear, nose and throat (ENT) specialist.\n\nBy continuing you confirm that you have read and understood this notice.</string>
+    <string name="disclaimer_accept">I Understand – Continue</string>
+    <string name="disclaimer_decline">Cancel</string>
+    <string name="disclaimer_result_note">⚠️ Screening only – not a substitute for professional audiological evaluation.</string>
     <string name="counter_check_warning_title">Careful!</string>
     <string name="counter_check_abort_title">Test Stopped</string>
     <string name="counter_check_abort_message">The button was pressed too many times without a tone being played. Please try the test again and only press the button when you truly hear a sound.</string>
