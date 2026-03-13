@@ -36,44 +36,13 @@ jobs:
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
           echo "App version: $VERSION_NAME (Build $BUILD_NUMBER)"
 
-      - name: Decode Keystore
-        env:
-          SIGNING_KEY_BASE64: ${{ secrets.SIGNING_KEY_BASE64 }}
-          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
-          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
-          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
-        run: |
-          if [ -z "$SIGNING_KEY_BASE64" ]; then
-            echo "::error::SIGNING_KEY_BASE64 secret is not set."
-            echo "::error::Auto-update requires a consistent signing certificate across all releases."
-            echo "::error::Generate a keystore once, base64-encode it, and store it as the SIGNING_KEY_BASE64 secret together with SIGNING_STORE_PASSWORD, SIGNING_KEY_ALIAS and SIGNING_KEY_PASSWORD."
-            exit 1
-          fi
-          echo "$SIGNING_KEY_BASE64" | base64 -d > "${{ github.workspace }}/keystore.jks"
-          echo "SIGNING_KEY_PATH=${{ github.workspace }}/keystore.jks" >> $GITHUB_ENV
-          echo "SIGNING_STORE_PASSWORD=$SIGNING_STORE_PASSWORD" >> $GITHUB_ENV
-          echo "SIGNING_KEY_ALIAS=$SIGNING_KEY_ALIAS" >> $GITHUB_ENV
-          echo "SIGNING_KEY_PASSWORD=$SIGNING_KEY_PASSWORD" >> $GITHUB_ENV
-
       - name: Build APK
-        run: ./gradlew assembleRelease
-
-      - name: Clean up keystore
-        if: always()
-        run: rm -f "${{ github.workspace }}/keystore.jks"
+        run: ./gradlew assembleDebug
 
       - name: Rename APK
         run: |
           APK_NAME="H-rMal-v${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.build_number }}.apk"
-          if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
-            mv app/build/outputs/apk/release/app-release.apk "$APK_NAME"
-          elif [ -f "app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
-            mv app/build/outputs/apk/release/app-release-unsigned.apk "$APK_NAME"
-          else
-            echo "Error: APK not found in app/build/outputs/apk/release/"
-            ls app/build/outputs/apk/release/ || true
-            exit 1
-          fi
+          mv app/build/outputs/apk/debug/app-debug.apk "$APK_NAME"
           echo "APK renamed to: $APK_NAME"
 
       - name: Create GitHub Release
