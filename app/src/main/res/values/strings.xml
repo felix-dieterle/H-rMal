@@ -46,8 +46,6 @@
     <string name="test_info_hidden">Listening…</string>
     <string name="feedback_correct">⭐ Super!</string>
     <string name="feedback_false_click">❌ Ups!</string>
-    <string name="correct_counter">⭐ %d</string>
-    <string name="incorrect_counter">❌ %d</string>
     <string name="countdown_label">≈ %d min remaining</string>
     <string name="test_complete_with_jingle">Test complete! Please wait…</string>
     <string name="recommendation_title">Recommendation</string>
