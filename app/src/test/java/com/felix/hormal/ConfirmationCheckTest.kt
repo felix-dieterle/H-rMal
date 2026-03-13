@@ -1,6 +1,8 @@
 package com.felix.hormal
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -18,6 +20,7 @@ class ConfirmationCheckTest {
         private const val STEP_DB = 10
         private const val MAX_DB = 90
         private const val NO_RESPONSE = 99
+        private const val MAX_FALSE_CLICKS = 3
     }
 
     /**
@@ -105,4 +108,72 @@ class ConfirmationCheckTest {
         // No confirmation logic applied → value unchanged
         assertEquals(NO_RESPONSE, noResponseThreshold)
     }
+
+    // -----------------------------------------------------------------------
+    // False click during the pre-confirmation pause
+    // -----------------------------------------------------------------------
+
+    /**
+     * Simulates a false click during the pre-confirmation pause.
+     * The confirmation is cancelled; the test advances to the next frequency
+     * (threshold stays as recorded), and the false click is counted.
+     */
+    private data class PauseFalseClickResult(
+        val falseClickCount: Int,
+        val aborted: Boolean,
+        val confirmationSkipped: Boolean
+    )
+
+    private fun simulatePauseFalseClick(
+        initialFalseClicks: Int = 0,
+        clickDuringPause: Boolean
+    ): PauseFalseClickResult {
+        var falseClickCount = initialFalseClicks
+        var aborted = false
+        var confirmationSkipped = false
+
+        if (clickDuringPause) {
+            // Mirrors onFalseClickDuringPause(): cancels confirmation, increments count
+            falseClickCount++
+            confirmationSkipped = true
+            if (falseClickCount >= MAX_FALSE_CLICKS) {
+                aborted = true
+            }
+        }
+        return PauseFalseClickResult(falseClickCount, aborted, confirmationSkipped)
+    }
+
+    @Test
+    fun falseClick_duringPause_incrementsFalseClickCount() {
+        val result = simulatePauseFalseClick(clickDuringPause = true)
+        assertEquals(1, result.falseClickCount)
+    }
+
+    @Test
+    fun falseClick_duringPause_skipsConfirmation() {
+        val result = simulatePauseFalseClick(clickDuringPause = true)
+        assertTrue("Confirmation should be skipped after false click during pause", result.confirmationSkipped)
+    }
+
+    @Test
+    fun noClick_duringPause_doesNotSkipConfirmation() {
+        val result = simulatePauseFalseClick(clickDuringPause = false)
+        assertFalse("Confirmation should NOT be skipped when no click during pause", result.confirmationSkipped)
+        assertEquals(0, result.falseClickCount)
+    }
+
+    @Test
+    fun falseClick_duringPause_atMaxThreshold_abortsTest() {
+        // Two prior false clicks + one during the pause → reaches MAX_FALSE_CLICKS
+        val result = simulatePauseFalseClick(initialFalseClicks = MAX_FALSE_CLICKS - 1, clickDuringPause = true)
+        assertTrue("Test should abort when MAX_FALSE_CLICKS reached via pause click", result.aborted)
+        assertEquals(MAX_FALSE_CLICKS, result.falseClickCount)
+    }
+
+    @Test
+    fun falseClick_duringPause_belowMax_doesNotAbort() {
+        val result = simulatePauseFalseClick(initialFalseClicks = 0, clickDuringPause = true)
+        assertFalse("Test should NOT abort on first false click during pause", result.aborted)
+    }
+
 }
