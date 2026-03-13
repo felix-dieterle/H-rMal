@@ -56,13 +56,15 @@ class TestActivity : AppCompatActivity() {
 
     private val TONE_DURATION_MS = 1500L
     private val RESPONSE_TIMEOUT_MS = 3000L
-    private val INTER_TONE_DELAY_MS = 1500L
-
-    /** Duration of the silent counter-check window (longer pause with no tone). */
-    private val COUNTER_CHECK_DURATION_MS = 5000L
 
     /** Insert a silent counter-check after every this many completed frequencies. */
-    private val CHECK_INTERVAL = 2
+    private val CHECK_INTERVAL = 1
+
+    /** Returns a random inter-tone delay in ms (1 000–4 000 ms). */
+    private fun randomInterToneDelayMs(): Long = (1000L..4000L).random()
+
+    /** Returns a random silent counter-check duration in ms (3 000–9 000 ms). */
+    private fun randomCounterCheckDurationMs(): Long = (3000L..9000L).random()
 
     /** Abort the test after this many false clicks during silent intervals. */
     private val MAX_FALSE_CLICKS = 3
@@ -200,7 +202,7 @@ class TestActivity : AppCompatActivity() {
         } else {
             // Keep descending to find the true minimum hearing threshold
             currentDb = nextDb
-            handler.postDelayed({ playNextTone() }, INTER_TONE_DELAY_MS)
+            handler.postDelayed({ playNextTone() }, randomInterToneDelayMs())
         }
     }
 
@@ -227,7 +229,7 @@ class TestActivity : AppCompatActivity() {
             }
             else -> {
                 currentDb = (currentDb + 10).coerceAtMost(90)
-                handler.postDelayed({ playNextTone() }, INTER_TONE_DELAY_MS)
+                handler.postDelayed({ playNextTone() }, randomInterToneDelayMs())
             }
         }
     }
@@ -255,14 +257,14 @@ class TestActivity : AppCompatActivity() {
 
     /**
      * Starts a silent counter-check: the button remains visible and active for
-     * [COUNTER_CHECK_DURATION_MS] but no tone is played. A click during this
-     * window is counted as a false response.
+     * a random duration (see [randomCounterCheckDurationMs]) but no tone is played.
+     * A click during this window is counted as a false response.
      */
     private fun playCounterCheck() {
         if (!testRunning) return
         isCounterCheckActive = true
         waitingForResponse = true
-        handler.postDelayed(counterCheckTimeoutRunnable, COUNTER_CHECK_DURATION_MS)
+        handler.postDelayed(counterCheckTimeoutRunnable, randomCounterCheckDurationMs())
     }
 
     private val counterCheckTimeoutRunnable = Runnable {
@@ -373,7 +375,7 @@ class TestActivity : AppCompatActivity() {
                 testingLeftEar = false
                 freqIndex = 0
                 completedSinceLastCheck = 0
-                handler.postDelayed({ playNextTone() }, 1500)
+                handler.postDelayed({ playNextTone() }, randomInterToneDelayMs())
             } else {
                 // Test complete
                 finishTest()
@@ -381,9 +383,9 @@ class TestActivity : AppCompatActivity() {
         } else if (completedSinceLastCheck >= CHECK_INTERVAL) {
             // Insert a silent counter-check before the next frequency
             completedSinceLastCheck = 0
-            handler.postDelayed({ playCounterCheck() }, 1500)
+            handler.postDelayed({ playCounterCheck() }, randomInterToneDelayMs())
         } else {
-            handler.postDelayed({ playNextTone() }, 1500)
+            handler.postDelayed({ playNextTone() }, randomInterToneDelayMs())
         }
     }
 
@@ -398,7 +400,7 @@ class TestActivity : AppCompatActivity() {
             .setMessage(message)
             .setPositiveButton(getString(R.string.ok)) { dialog, _ ->
                 dialog.dismiss()
-                handler.postDelayed({ playNextTone() }, INTER_TONE_DELAY_MS)
+                handler.postDelayed({ playNextTone() }, randomInterToneDelayMs())
             }
             .setCancelable(false)
             .show()

@@ -16,7 +16,7 @@ class CounterCheckTest {
 
     companion object {
         private const val MAX_FALSE_CLICKS = 3
-        private const val CHECK_INTERVAL = 2
+        private const val CHECK_INTERVAL = 1
         private const val TOTAL_FREQUENCIES = 6
     }
 
@@ -95,8 +95,38 @@ class CounterCheckTest {
     }
 
     // ---------------------------------------------------------------------------
-    // Helpers
+    // Random delay range tests
     // ---------------------------------------------------------------------------
+
+    /**
+     * Mirrors randomInterToneDelayMs() from TestActivity.
+     * Returns a random delay in the inter-tone range [1 000, 4 000] ms.
+     */
+    private fun randomInterToneDelayMs(): Long = (1000L..4000L).random()
+
+    /**
+     * Mirrors randomCounterCheckDurationMs() from TestActivity.
+     * Returns a random delay in the counter-check range [3 000, 9 000] ms.
+     */
+    private fun randomCounterCheckDurationMs(): Long = (3000L..9000L).random()
+
+    @Test
+    fun randomInterToneDelay_isWithinExpectedRange() {
+        repeat(200) {
+            val delay = randomInterToneDelayMs()
+            assertTrue("Inter-tone delay $delay ms is below minimum 1000 ms", delay >= 1000L)
+            assertTrue("Inter-tone delay $delay ms exceeds maximum 4000 ms", delay <= 4000L)
+        }
+    }
+
+    @Test
+    fun randomCounterCheckDuration_isWithinExpectedRange() {
+        repeat(200) {
+            val duration = randomCounterCheckDurationMs()
+            assertTrue("Counter-check duration $duration ms is below minimum 3000 ms", duration >= 3000L)
+            assertTrue("Counter-check duration $duration ms exceeds maximum 9000 ms", duration <= 9000L)
+        }
+    }
 
     private data class FalseClickResult(val falseClickCount: Int, val aborted: Boolean)
 
