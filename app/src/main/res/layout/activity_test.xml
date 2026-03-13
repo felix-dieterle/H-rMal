@@ -51,7 +51,8 @@
         android:id="@+id/layoutCounters"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
+        android:orientation="vertical"
+        android:gravity="center"
         android:visibility="gone"
         android:layout_marginBottom="8dp">
 
@@ -59,16 +60,18 @@
             android:id="@+id/tvCorrectCount"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="⭐ 0"
+            android:text=""
             android:textSize="24sp"
-            android:layout_marginEnd="24dp" />
+            android:gravity="center"
+            android:layout_marginBottom="4dp" />
 
         <TextView
             android:id="@+id/tvIncorrectCount"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="❌ 0"
-            android:textSize="24sp" />
+            android:text=""
+            android:textSize="24sp"
+            android:gravity="center" />
 
     </LinearLayout>
 

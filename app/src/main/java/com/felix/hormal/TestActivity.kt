@@ -67,6 +67,9 @@ class TestActivity : AppCompatActivity() {
     /** Abort the test after this many false clicks during silent intervals. */
     private val MAX_FALSE_CLICKS = 3
 
+    /** Maximum number of ⭐ icons shown in the counter row; overflow shows '+'. */
+    private val MAX_VISIBLE_STARS = 10
+
     /** Estimated seconds per frequency step for the countdown display. */
     private val ESTIMATED_SECONDS_PER_FREQUENCY = 15
 
@@ -500,8 +503,13 @@ class TestActivity : AppCompatActivity() {
 
     /** Updates the ⭐/❌ counters shown to the child during the test. */
     private fun updateCounters() {
-        binding.tvCorrectCount.text = getString(R.string.correct_counter, motivationCorrectCount)
-        binding.tvIncorrectCount.text = getString(R.string.incorrect_counter, falseClickCount)
+        val stars = if (motivationCorrectCount <= MAX_VISIBLE_STARS) {
+            "⭐".repeat(motivationCorrectCount)
+        } else {
+            "⭐".repeat(MAX_VISIBLE_STARS) + "+"
+        }
+        binding.tvCorrectCount.text = stars
+        binding.tvIncorrectCount.text = "❌".repeat(falseClickCount)
     }
 
     /**
