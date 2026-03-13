@@ -45,6 +45,7 @@ class TestActivity : AppCompatActivity() {
 
     // Counter-check state: detect false clicks during silent intervals
     private var isCounterCheckActive = false
+    private var isPreConfirmationPause = false  // true during the silent pause before the confirmation tone
     private var falseClickCount = 0
     private var completedSinceLastCheck = 0
 
@@ -99,6 +100,8 @@ class TestActivity : AppCompatActivity() {
         binding.btnHeard.setOnClickListener {
             if (isCounterCheckActive) {
                 onFalseClick()
+            } else if (isPreConfirmationPause) {
+                onFalseClickDuringPause()
             } else if (waitingForResponse) {
                 if (isConfirmationActive) {
                     onConfirmationHeard()
@@ -106,7 +109,6 @@ class TestActivity : AppCompatActivity() {
                     onHeardResponse()
                 }
             }
-            // Clicks during the pre-confirmation pause (both flags false) are silently ignored
         }
 
         binding.btnStartTest.setOnClickListener {
@@ -127,6 +129,7 @@ class TestActivity : AppCompatActivity() {
         motivationCorrectCount = 0
         completedSinceLastCheck = 0
         isCounterCheckActive = false
+        isPreConfirmationPause = false
         isConfirmationActive = false
         pendingConfirmationDb = 0
         testRunning = true
@@ -251,7 +254,28 @@ class TestActivity : AppCompatActivity() {
         if (falseClickCount >= MAX_FALSE_CLICKS) {
             showTooManyFalseClicksDialog()
         } else {
-            showFalseClickWarning()
+            showFalseClickWarning { handler.postDelayed({ playNextTone() }, randomInterToneDelayMs()) }
+        }
+    }
+
+    /**
+     * Called when the user presses the button during the silent pre-confirmation pause
+     * (the random delay before the confirmation tone is played).
+     * The pending confirmation is cancelled and the test advances to the next frequency.
+     */
+    private fun onFalseClickDuringPause() {
+        if (!testRunning) return
+        handler.removeCallbacks(confirmationPrePauseRunnable)
+        isPreConfirmationPause = false
+        falseClickCount++
+
+        showFeedback(positive = false)
+        updateCounters()
+
+        if (falseClickCount >= MAX_FALSE_CLICKS) {
+            showTooManyFalseClicksDialog()
+        } else {
+            showFalseClickWarning { moveToNext() }
         }
     }
 
@@ -297,18 +321,19 @@ class TestActivity : AppCompatActivity() {
     /**
      * Schedules a boundary re-verification: a random silent pause (2–4 s) followed
      * by playing the tone at [pendingConfirmationDb] once more.  Button clicks during
-     * the pause are silently ignored (both [waitingForResponse] and
-     * [isCounterCheckActive] are false), which prevents a reflex press from
-     * inadvertently confirming the threshold.
+     * the pause are now detected as false clicks via [isPreConfirmationPause], which
+     * also prevents a reflex press from inadvertently confirming the threshold.
      */
     private fun scheduleConfirmationCheck() {
         waitingForResponse = false
         isCounterCheckActive = false
+        isPreConfirmationPause = true
         val pauseMs = (2000L..4000L).random()
         handler.postDelayed(confirmationPrePauseRunnable, pauseMs)
     }
 
     private val confirmationPrePauseRunnable = Runnable {
+        isPreConfirmationPause = false
         if (testRunning) playConfirmationTone()
     }
 
@@ -389,8 +414,8 @@ class TestActivity : AppCompatActivity() {
         }
     }
 
-    /** Shows a warning dialog after a false click; test resumes when user dismisses it. */
-    private fun showFalseClickWarning() {
+    /** Shows a warning dialog after a false click; [afterDismiss] is invoked when the user confirms. */
+    private fun showFalseClickWarning(afterDismiss: () -> Unit) {
         val remaining = MAX_FALSE_CLICKS - falseClickCount
         val message = resources.getQuantityString(
             R.plurals.counter_check_warning_message, remaining, remaining
@@ -400,7 +425,7 @@ class TestActivity : AppCompatActivity() {
             .setMessage(message)
             .setPositiveButton(getString(R.string.ok)) { dialog, _ ->
                 dialog.dismiss()
-                handler.postDelayed({ playNextTone() }, randomInterToneDelayMs())
+                afterDismiss()
             }
             .setCancelable(false)
             .show()
