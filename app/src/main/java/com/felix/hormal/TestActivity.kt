@@ -46,6 +46,7 @@ class TestActivity : AppCompatActivity() {
     // Counter-check state: detect false clicks during silent intervals
     private var isCounterCheckActive = false
     private var isPreConfirmationPause = false  // true during the silent pause before the confirmation tone
+    private var isInterToneDelay = false        // true while waiting between tones (no tone playing)
     private var falseClickCount = 0
     private var completedSinceLastCheck = 0
 
@@ -108,6 +109,8 @@ class TestActivity : AppCompatActivity() {
                 } else {
                     onHeardResponse()
                 }
+            } else if (testRunning && isInterToneDelay) {
+                onFalseClickDuringInterToneDelay()
             }
         }
 
@@ -130,6 +133,8 @@ class TestActivity : AppCompatActivity() {
         completedSinceLastCheck = 0
         isCounterCheckActive = false
         isPreConfirmationPause = false
+        isInterToneDelay = false
+        interToneAction = null
         isConfirmationActive = false
         pendingConfirmationDb = 0
         testRunning = true
@@ -159,7 +164,7 @@ class TestActivity : AppCompatActivity() {
         updateCounters()
         updateCountdown()
         updateStatus()
-        handler.postDelayed({ playNextTone() }, 1000)
+        scheduleNextTone(1000L)
     }
 
     private fun playNextTone() {
@@ -205,7 +210,7 @@ class TestActivity : AppCompatActivity() {
         } else {
             // Keep descending to find the true minimum hearing threshold
             currentDb = nextDb
-            handler.postDelayed({ playNextTone() }, randomInterToneDelayMs())
+            scheduleNextTone(randomInterToneDelayMs())
         }
     }
 
@@ -232,7 +237,7 @@ class TestActivity : AppCompatActivity() {
             }
             else -> {
                 currentDb = (currentDb + 10).coerceAtMost(90)
-                handler.postDelayed({ playNextTone() }, randomInterToneDelayMs())
+                scheduleNextTone(randomInterToneDelayMs())
             }
         }
     }
@@ -254,7 +259,7 @@ class TestActivity : AppCompatActivity() {
         if (falseClickCount >= MAX_FALSE_CLICKS) {
             showTooManyFalseClicksDialog()
         } else {
-            showFalseClickWarning { handler.postDelayed({ playNextTone() }, randomInterToneDelayMs()) }
+            showFalseClickWarning { scheduleNextTone(randomInterToneDelayMs()) }
         }
     }
 
@@ -277,6 +282,61 @@ class TestActivity : AppCompatActivity() {
         } else {
             showFalseClickWarning { moveToNext() }
         }
+    }
+
+    /**
+     * Called when the user presses the button during the inter-tone delay (the silent
+     * pause between tones when no tone is playing and no counter-check is active).
+     * Rapidly clicking at regular intervals during these gaps is treated as cheating.
+     */
+    private fun onFalseClickDuringInterToneDelay() {
+        if (!testRunning) return
+        handler.removeCallbacks(interToneRunnable)
+        isInterToneDelay = false
+        interToneAction = null
+        falseClickCount++
+
+        showFeedback(positive = false)
+        updateCounters()
+
+        if (falseClickCount >= MAX_FALSE_CLICKS) {
+            showTooManyFalseClicksDialog()
+        } else {
+            showFalseClickWarning { scheduleNextTone(randomInterToneDelayMs()) }
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Inter-tone delay scheduling helpers
+    // ---------------------------------------------------------------------------
+
+    /** The action to invoke when the inter-tone delay expires. */
+    private var interToneAction: (() -> Unit)? = null
+
+    private val interToneRunnable = Runnable {
+        isInterToneDelay = false
+        interToneAction?.invoke()
+        interToneAction = null
+    }
+
+    /**
+     * Schedules [playNextTone] after [delayMs] ms, setting [isInterToneDelay] = true
+     * so that button clicks during the pause are detected as false clicks.
+     */
+    private fun scheduleNextTone(delayMs: Long) {
+        isInterToneDelay = true
+        interToneAction = ::playNextTone
+        handler.postDelayed(interToneRunnable, delayMs)
+    }
+
+    /**
+     * Schedules [playCounterCheck] after [delayMs] ms, setting [isInterToneDelay] = true
+     * so that button clicks during the pause are detected as false clicks.
+     */
+    private fun scheduleCounterCheck(delayMs: Long) {
+        isInterToneDelay = true
+        interToneAction = ::playCounterCheck
+        handler.postDelayed(interToneRunnable, delayMs)
     }
 
     /**
@@ -400,7 +460,7 @@ class TestActivity : AppCompatActivity() {
                 testingLeftEar = false
                 freqIndex = 0
                 completedSinceLastCheck = 0
-                handler.postDelayed({ playNextTone() }, randomInterToneDelayMs())
+                scheduleNextTone(randomInterToneDelayMs())
             } else {
                 // Test complete
                 finishTest()
@@ -408,9 +468,9 @@ class TestActivity : AppCompatActivity() {
         } else if (completedSinceLastCheck >= CHECK_INTERVAL) {
             // Insert a silent counter-check before the next frequency
             completedSinceLastCheck = 0
-            handler.postDelayed({ playCounterCheck() }, randomInterToneDelayMs())
+            scheduleCounterCheck(randomInterToneDelayMs())
         } else {
-            handler.postDelayed({ playNextTone() }, randomInterToneDelayMs())
+            scheduleNextTone(randomInterToneDelayMs())
         }
     }
 
