@@ -56,7 +56,7 @@ class TestActivity : AppCompatActivity() {
 
     private val TONE_DURATION_MS = 1500L
     private val RESPONSE_TIMEOUT_MS = 3000L
-    private val INTER_TONE_DELAY_MS = 500L
+    private val INTER_TONE_DELAY_MS = 1500L
 
     /** Duration of the silent counter-check window (longer pause with no tone). */
     private val COUNTER_CHECK_DURATION_MS = 5000L
