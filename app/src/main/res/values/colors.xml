@@ -9,4 +9,6 @@
     <color name="white">#FFFFFFFF</color>
     <color name="test_background">#FFF5F5F5</color>
     <color name="heard_button_color">#FF4CAF50</color>
+    <color name="feedback_correct_text">#FF2E7D32</color>
+    <color name="feedback_incorrect_text">#FFC62828</color>
 </resources>

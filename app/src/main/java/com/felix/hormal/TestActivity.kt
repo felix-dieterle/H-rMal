@@ -7,6 +7,7 @@ import android.os.Looper
 import android.view.View
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.felix.hormal.audio.Ear
 import com.felix.hormal.audio.ToneGenerator
 import com.felix.hormal.databinding.ActivityTestBinding
@@ -21,8 +22,15 @@ class TestActivity : AppCompatActivity() {
     // Privacy mode: when true, frequency and dB info are hidden during the test
     private var hideTestInfo = true
 
+    // Shortened test: only the three most clinically relevant frequencies
+    private var isShortVersion = false
+    private val shortFreqIndices = intArrayOf(1, 3, 4) // 500 Hz, 2000 Hz, 4000 Hz
+
+    /** Active frequency indices into [FREQUENCIES] for the current test session. */
+    private lateinit var activeFreqIndices: IntArray
+
     // State
-    private var freqIndex = 0         // current index into FREQUENCIES
+    private var freqIndex = 0         // current index into activeFreqIndices
     private var testingLeftEar = true
     private var currentDb = 40
     private var correctResponses = 0
@@ -40,6 +48,9 @@ class TestActivity : AppCompatActivity() {
     private var falseClickCount = 0
     private var completedSinceLastCheck = 0
 
+    // Child motivation counters
+    private var motivationCorrectCount = 0
+
     // Measurement series: each entry is "ear,freq,dB,heard" (e.g. "L,250,40,1")
     private val measurements = ArrayList<String>()
 
@@ -56,11 +67,24 @@ class TestActivity : AppCompatActivity() {
     /** Abort the test after this many false clicks during silent intervals. */
     private val MAX_FALSE_CLICKS = 3
 
+    /** Estimated seconds per frequency step for the countdown display. */
+    private val ESTIMATED_SECONDS_PER_FREQUENCY = 15
+
     /** Step size for the staircase algorithm in dB HL. */
     private val STEP_DB = 10
 
     /** Maximum measurable level in dB HL. */
     private val MAX_DB = 90
+
+    // ---------------------------------------------------------------------------
+    // Helpers to resolve the active frequency and its storage index
+    // ---------------------------------------------------------------------------
+
+    /** The actual frequency in Hz for the current test step. */
+    private val currentFreqHz: Int get() = FREQUENCIES[activeFreqIndices[freqIndex]]
+
+    /** Index into the threshold arrays for the current test step. */
+    private val currentFreqStoreIndex: Int get() = activeFreqIndices[freqIndex]
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -82,30 +106,50 @@ class TestActivity : AppCompatActivity() {
 
         binding.btnStartTest.setOnClickListener {
             hideTestInfo = binding.cbHideInfo.isChecked
+            isShortVersion = binding.cbShortVersion.isChecked
             startTest()
         }
     }
 
     private fun startTest() {
+        activeFreqIndices = if (isShortVersion) shortFreqIndices else IntArray(FREQUENCIES.size) { it }
+
         freqIndex = 0
         testingLeftEar = true
         currentDb = 40
         correctResponses = 0
         falseClickCount = 0
+        motivationCorrectCount = 0
         completedSinceLastCheck = 0
         isCounterCheckActive = false
         isConfirmationActive = false
         pendingConfirmationDb = 0
         testRunning = true
+
+        // Initialise all thresholds; mark frequencies skipped in short mode with -1
         leftThresholds.fill(40)
         rightThresholds.fill(40)
+        if (isShortVersion) {
+            for (i in FREQUENCIES.indices) {
+                if (i !in shortFreqIndices) {
+                    leftThresholds[i] = -1
+                    rightThresholds[i] = -1
+                }
+            }
+        }
+
         measurements.clear()
 
         binding.btnStartTest.visibility = View.GONE
         binding.cbHideInfo.visibility = View.GONE
+        binding.cbShortVersion.visibility = View.GONE
         binding.btnHeard.visibility = View.VISIBLE
+        binding.layoutCounters.visibility = View.VISIBLE
+        binding.tvCountdown.visibility = View.VISIBLE
         binding.tvInstructions.text = getString(R.string.test_instructions)
 
+        updateCounters()
+        updateCountdown()
         updateStatus()
         handler.postDelayed({ playNextTone() }, 1000)
     }
@@ -115,12 +159,12 @@ class TestActivity : AppCompatActivity() {
         waitingForResponse = false
         toneGen.stop()
 
-        val freq = FREQUENCIES[freqIndex]
         val ear = if (testingLeftEar) Ear.LEFT else Ear.RIGHT
 
         updateStatus()
+        updateCountdown()
 
-        toneGen.playTone(freq, currentDb, TONE_DURATION_MS.toInt(), ear)
+        toneGen.playTone(currentFreqHz, currentDb, TONE_DURATION_MS.toInt(), ear)
         waitingForResponse = true
 
         // Schedule no-response timeout
@@ -139,9 +183,12 @@ class TestActivity : AppCompatActivity() {
         toneGen.stop()
 
         val earCode = if (testingLeftEar) "L" else "R"
-        measurements.add("$earCode,${FREQUENCIES[freqIndex]},$currentDb,1")
+        measurements.add("$earCode,$currentFreqHz,$currentDb,1")
 
         correctResponses++
+        motivationCorrectCount++
+        showFeedback(positive = true)
+        updateCounters()
 
         val nextDb = (currentDb - 10).coerceAtLeast(-10)
         if (nextDb == currentDb) {
@@ -159,7 +206,7 @@ class TestActivity : AppCompatActivity() {
         toneGen.stop()
 
         val earCode = if (testingLeftEar) "L" else "R"
-        measurements.add("$earCode,${FREQUENCIES[freqIndex]},$currentDb,0")
+        measurements.add("$earCode,$currentFreqHz,$currentDb,0")
 
         val hadPriorResponse = correctResponses > 0
         correctResponses = 0
@@ -193,6 +240,9 @@ class TestActivity : AppCompatActivity() {
         waitingForResponse = false
         falseClickCount++
 
+        showFeedback(positive = false)
+        updateCounters()
+
         if (falseClickCount >= MAX_FALSE_CLICKS) {
             showTooManyFalseClicksDialog()
         } else {
@@ -224,9 +274,9 @@ class TestActivity : AppCompatActivity() {
     private fun recordThreshold(noResponse: Boolean = false) {
         val threshold = if (noResponse) 99 else currentDb
         if (testingLeftEar) {
-            leftThresholds[freqIndex] = threshold
+            leftThresholds[currentFreqStoreIndex] = threshold
         } else {
-            rightThresholds[freqIndex] = threshold
+            rightThresholds[currentFreqStoreIndex] = threshold
         }
 
         if (!noResponse) {
@@ -261,10 +311,9 @@ class TestActivity : AppCompatActivity() {
         if (!testRunning) return
         isConfirmationActive = true
         waitingForResponse = true
-        val freq = FREQUENCIES[freqIndex]
         val ear = if (testingLeftEar) Ear.LEFT else Ear.RIGHT
         updateStatus()
-        toneGen.playTone(freq, pendingConfirmationDb, TONE_DURATION_MS.toInt(), ear)
+        toneGen.playTone(currentFreqHz, pendingConfirmationDb, TONE_DURATION_MS.toInt(), ear)
         handler.postDelayed(confirmationNoResponseRunnable, RESPONSE_TIMEOUT_MS)
     }
 
@@ -281,7 +330,12 @@ class TestActivity : AppCompatActivity() {
         isConfirmationActive = false
         toneGen.stop()
         val earCode = if (testingLeftEar) "L" else "R"
-        measurements.add("$earCode,${FREQUENCIES[freqIndex]},$pendingConfirmationDb,1")
+        measurements.add("$earCode,$currentFreqHz,$pendingConfirmationDb,1")
+
+        motivationCorrectCount++
+        showFeedback(positive = true)
+        updateCounters()
+
         // Threshold confirmed – keep the previously stored value
         moveToNext()
     }
@@ -296,11 +350,11 @@ class TestActivity : AppCompatActivity() {
         isConfirmationActive = false
         toneGen.stop()
         val earCode = if (testingLeftEar) "L" else "R"
-        measurements.add("$earCode,${FREQUENCIES[freqIndex]},$pendingConfirmationDb,0")
+        measurements.add("$earCode,$currentFreqHz,$pendingConfirmationDb,0")
         // Threshold not confirmed → raise by one step
         val adjusted = (pendingConfirmationDb + STEP_DB).coerceAtMost(MAX_DB)
-        if (testingLeftEar) leftThresholds[freqIndex] = adjusted
-        else rightThresholds[freqIndex] = adjusted
+        if (testingLeftEar) leftThresholds[currentFreqStoreIndex] = adjusted
+        else rightThresholds[currentFreqStoreIndex] = adjusted
         moveToNext()
     }
 
@@ -310,7 +364,7 @@ class TestActivity : AppCompatActivity() {
         currentDb = 40
         completedSinceLastCheck++
 
-        if (freqIndex >= FREQUENCIES.size) {
+        if (freqIndex >= activeFreqIndices.size) {
             if (testingLeftEar) {
                 // Switch to right ear
                 testingLeftEar = false
@@ -366,6 +420,8 @@ class TestActivity : AppCompatActivity() {
         toneGen.stop()
 
         binding.btnHeard.visibility = View.GONE
+        binding.layoutCounters.visibility = View.GONE
+        binding.tvCountdown.visibility = View.GONE
         binding.tvStatus.text = getString(R.string.test_complete_with_jingle)
 
         playEndJingle {
@@ -405,16 +461,61 @@ class TestActivity : AppCompatActivity() {
             binding.tvStatus.text = getString(R.string.test_info_hidden)
             binding.tvProgress.text = ""
         } else {
-            val freq = FREQUENCIES[freqIndex]
             val earLabel = if (testingLeftEar) getString(R.string.left_ear) else getString(R.string.right_ear)
-            binding.tvStatus.text = getString(R.string.test_status, earLabel, freq, currentDb)
+            binding.tvStatus.text = getString(R.string.test_status, earLabel, currentFreqHz, currentDb)
             binding.tvProgress.text = getString(
                 R.string.test_progress,
                 freqIndex + 1,
-                FREQUENCIES.size,
+                activeFreqIndices.size,
                 if (testingLeftEar) 1 else 2
             )
         }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Child-motivation UI helpers
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Briefly shows a large emoji feedback label — green star for a correct
+     * response, red cross for a false click.  The label auto-hides after 1.5 s.
+     */
+    private fun showFeedback(positive: Boolean) {
+        binding.tvFeedback.text =
+            if (positive) getString(R.string.feedback_correct) else getString(R.string.feedback_false_click)
+        binding.tvFeedback.setTextColor(
+            ContextCompat.getColor(
+                this,
+                if (positive) R.color.feedback_correct_text else R.color.feedback_incorrect_text
+            )
+        )
+        binding.tvFeedback.visibility = View.VISIBLE
+        handler.removeCallbacks(clearFeedbackRunnable)
+        handler.postDelayed(clearFeedbackRunnable, 1500)
+    }
+
+    private val clearFeedbackRunnable = Runnable {
+        binding.tvFeedback.visibility = View.INVISIBLE
+    }
+
+    /** Updates the ⭐/❌ counters shown to the child during the test. */
+    private fun updateCounters() {
+        binding.tvCorrectCount.text = getString(R.string.correct_counter, motivationCorrectCount)
+        binding.tvIncorrectCount.text = getString(R.string.incorrect_counter, falseClickCount)
+    }
+
+    /**
+     * Updates the approximate time-remaining label.
+     * Assumes [ESTIMATED_SECONDS_PER_FREQUENCY] seconds per remaining frequency step
+     * (tone + confirmation + pauses). Rounds up so the display never shows 0 min.
+     */
+    private fun updateCountdown() {
+        val remainingThisEar = activeFreqIndices.size - freqIndex
+        val remainingTotal = remainingThisEar + if (testingLeftEar) activeFreqIndices.size else 0
+        val remainingSeconds = remainingTotal * ESTIMATED_SECONDS_PER_FREQUENCY
+        // Round up: (seconds + 59) / 60 ensures any partial minute shows as a full minute
+        val remainingMinutes = maxOf(1, (remainingSeconds + 59) / 60)
+        binding.tvCountdown.text = getString(R.string.countdown_label, remainingMinutes)
     }
 
     override fun onDestroy() {
