@@ -56,4 +56,9 @@
         <item quantity="one">Please only press the button when you actually hear a tone! You have 1 more chance before the test is stopped.</item>
         <item quantity="other">Please only press the button when you actually hear a tone! You have %d more chances before the test is stopped.</item>
     </plurals>
+    <string name="update_available_title">Update Available</string>
+    <string name="update_available_message">A new version is available: %1$s\n\nWould you like to download and install it now?</string>
+    <string name="update_download">Download &amp; Install</string>
+    <string name="update_later">Later</string>
+    <string name="update_downloading">Downloading update…</string>
 </resources>

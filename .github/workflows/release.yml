@@ -36,53 +36,13 @@ jobs:
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
           echo "App version: $VERSION_NAME (Build $BUILD_NUMBER)"
 
-      - name: Decode or Generate Keystore
-        env:
-          SIGNING_KEY_BASE64: ${{ secrets.SIGNING_KEY_BASE64 }}
-          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
-          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
-          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
-        run: |
-          if [ -n "$SIGNING_KEY_BASE64" ]; then
-            echo "$SIGNING_KEY_BASE64" | base64 -d > "${{ github.workspace }}/keystore.jks"
-            echo "SIGNING_KEY_PATH=${{ github.workspace }}/keystore.jks" >> $GITHUB_ENV
-            echo "SIGNING_STORE_PASSWORD=$SIGNING_STORE_PASSWORD" >> $GITHUB_ENV
-            echo "SIGNING_KEY_ALIAS=$SIGNING_KEY_ALIAS" >> $GITHUB_ENV
-            echo "SIGNING_KEY_PASSWORD=$SIGNING_KEY_PASSWORD" >> $GITHUB_ENV
-          else
-            echo "No signing key configured – generating a temporary keystore so the APK is installable."
-            keytool -genkey -v \
-              -keystore "${{ github.workspace }}/keystore.jks" \
-              -alias ci-build \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -storepass android \
-              -keypass android \
-              -dname "CN=Temporary CI Build, O=CI Generated, L=Unknown, S=Unknown, C=DE"
-            echo "SIGNING_KEY_PATH=${{ github.workspace }}/keystore.jks" >> $GITHUB_ENV
-            echo "SIGNING_STORE_PASSWORD=android" >> $GITHUB_ENV
-            echo "SIGNING_KEY_ALIAS=ci-build" >> $GITHUB_ENV
-            echo "SIGNING_KEY_PASSWORD=android" >> $GITHUB_ENV
-          fi
-
       - name: Build APK
-        run: ./gradlew assembleRelease
-
-      - name: Clean up keystore
-        if: always()
-        run: rm -f "${{ github.workspace }}/keystore.jks"
+        run: ./gradlew assembleDebug
 
       - name: Rename APK
         run: |
           APK_NAME="H-rMal-v${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.build_number }}.apk"
-          if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
-            mv app/build/outputs/apk/release/app-release.apk "$APK_NAME"
-          elif [ -f "app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
-            mv app/build/outputs/apk/release/app-release-unsigned.apk "$APK_NAME"
-          else
-            echo "Error: APK not found in app/build/outputs/apk/release/"
-            ls app/build/outputs/apk/release/ || true
-            exit 1
-          fi
+          mv app/build/outputs/apk/debug/app-debug.apk "$APK_NAME"
           echo "APK renamed to: $APK_NAME"
 
       - name: Create GitHub Release
@@ -90,6 +50,7 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.build_number }}
           name: H-rMal v${{ steps.version.outputs.version_name }} (Build ${{ steps.version.outputs.build_number }})
+          body: "[auto_update]"
           files: H-rMal-v${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.build_number }}.apk
           generate_release_notes: true
           make_latest: true
