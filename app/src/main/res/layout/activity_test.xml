@@ -32,7 +32,66 @@
         android:text="@string/start_instructions"
         android:textSize="16sp"
         android:gravity="center"
-        android:layout_marginBottom="48dp" />
+        android:layout_marginBottom="16dp" />
+
+    <!-- Feedback emoji: shown briefly after each button press during the test -->
+    <TextView
+        android:id="@+id/tvFeedback"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="40sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:visibility="invisible"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Child-friendly counters: correct (⭐) and false clicks (❌), shown during test -->
+    <LinearLayout
+        android:id="@+id/layoutCounters"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:visibility="gone"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:id="@+id/tvCorrectCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⭐ 0"
+            android:textSize="24sp"
+            android:layout_marginEnd="24dp" />
+
+        <TextView
+            android:id="@+id/tvIncorrectCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="❌ 0"
+            android:textSize="24sp" />
+
+    </LinearLayout>
+
+    <!-- Approximate time remaining, shown during test -->
+    <TextView
+        android:id="@+id/tvCountdown"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="14sp"
+        android:visibility="gone"
+        android:layout_marginBottom="24dp" />
+
+    <!-- Shortened-version checkbox: shown only on the start screen -->
+    <CheckBox
+        android:id="@+id/cbShortVersion"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/short_version_label"
+        android:checked="false"
+        android:textSize="14sp"
+        android:layout_marginBottom="8dp"
+        android:gravity="center_vertical" />
 
     <CheckBox
         android:id="@+id/cbHideInfo"

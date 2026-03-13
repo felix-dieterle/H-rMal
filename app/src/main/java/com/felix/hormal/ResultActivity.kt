@@ -118,9 +118,9 @@ class ResultActivity : AppCompatActivity() {
         val chart = binding.audiogramChart
         val thresholds = AGE_THRESHOLDS[selectedAgeGroup]!!
 
-        // Left ear entries (blue circles)
+        // Left ear entries (blue circles) — skip untested frequencies (value = -1)
         val leftEntries = leftThresholds.toList().mapIndexedNotNull { i, v ->
-            if (v <= 90) Entry(i.toFloat(), v.toFloat()) else null
+            if (v in 0..90) Entry(i.toFloat(), v.toFloat()) else null
         }
         val leftDataSet = LineDataSet(leftEntries, getString(R.string.left_ear)).apply {
             color = ContextCompat.getColor(this@ResultActivity, android.R.color.holo_blue_dark)
@@ -131,9 +131,9 @@ class ResultActivity : AppCompatActivity() {
             valueTextSize = 10f
         }
 
-        // Right ear entries (red)
+        // Right ear entries (red) — skip untested frequencies (value = -1)
         val rightEntries = rightThresholds.toList().mapIndexedNotNull { i, v ->
-            if (v <= 90) Entry(i.toFloat(), v.toFloat()) else null
+            if (v in 0..90) Entry(i.toFloat(), v.toFloat()) else null
         }
         val rightDataSet = LineDataSet(rightEntries, getString(R.string.right_ear)).apply {
             color = ContextCompat.getColor(this@ResultActivity, android.R.color.holo_red_dark)
@@ -236,6 +236,9 @@ class ResultActivity : AppCompatActivity() {
         for (i in FREQUENCIES.indices) {
             val leftDb = leftThresholds[i]
             val rightDb = rightThresholds[i]
+
+            // Skip frequencies that were not tested in a shortened test session
+            if (leftDb == -1 || rightDb == -1) continue
 
             if (leftDb == 99 || rightDb == 99) {
                 noResponseCount++
