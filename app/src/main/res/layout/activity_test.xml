@@ -1,128 +1,181 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="24dp"
-    android:background="@color/test_background">
+    android:background="@color/test_background"
+    android:fillViewport="true">
 
-    <TextView
-        android:id="@+id/tvProgress"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text=""
-        android:textSize="14sp"
-        android:layout_marginBottom="8dp" />
-
-    <TextView
-        android:id="@+id/tvStatus"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/ready_to_start"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:gravity="center"
-        android:layout_marginBottom="8dp" />
-
-    <TextView
-        android:id="@+id/tvInstructions"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/start_instructions"
-        android:textSize="16sp"
-        android:gravity="center"
-        android:layout_marginBottom="16dp" />
-
-    <!-- Feedback emoji: shown briefly after each button press during the test -->
-    <TextView
-        android:id="@+id/tvFeedback"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text=""
-        android:textSize="40sp"
-        android:textStyle="bold"
-        android:gravity="center"
-        android:visibility="invisible"
-        android:layout_marginBottom="8dp" />
-
-    <!-- Child-friendly counters: correct (⭐) and false clicks (❌), shown during test -->
     <LinearLayout
-        android:id="@+id/layoutCounters"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:gravity="center"
-        android:visibility="gone"
-        android:layout_marginBottom="8dp">
+        android:gravity="center_horizontal"
+        android:padding="24dp">
 
         <TextView
-            android:id="@+id/tvCorrectCount"
+            android:id="@+id/tvProgress"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text=""
-            android:textSize="24sp"
+            android:textSize="14sp"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/ready_to_start"
+            android:textSize="22sp"
+            android:textStyle="bold"
             android:gravity="center"
-            android:layout_marginBottom="4dp" />
+            android:layout_marginBottom="8dp" />
 
         <TextView
-            android:id="@+id/tvIncorrectCount"
+            android:id="@+id/tvInstructions"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/start_instructions"
+            android:textSize="16sp"
+            android:gravity="center"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Feedback emoji: shown briefly after each button press during the test -->
+        <TextView
+            android:id="@+id/tvFeedback"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text=""
-            android:textSize="24sp"
-            android:gravity="center" />
+            android:textSize="40sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:visibility="invisible"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Live audiogram: shown during the test, updated as thresholds are confirmed -->
+        <com.felix.hormal.ui.LiveAudiogramView
+            android:id="@+id/liveAudiogram"
+            android:layout_width="match_parent"
+            android:layout_height="160dp"
+            android:visibility="gone"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Live audiogram legend -->
+        <TextView
+            android:id="@+id/tvAudiogramLegend"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/live_audiogram_legend"
+            android:textSize="11sp"
+            android:gravity="center"
+            android:visibility="gone"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Child-friendly motivation: stick figure + counters -->
+        <LinearLayout
+            android:id="@+id/layoutCounters"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:visibility="gone"
+            android:layout_marginBottom="8dp">
+
+            <!-- Stick figure (left side) -->
+            <com.felix.hormal.ui.StickFigureView
+                android:id="@+id/stickFigure"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:layout_marginEnd="16dp" />
+
+            <!-- Star / false-click counters (right side) -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvCorrectCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textSize="24sp"
+                    android:gravity="center"
+                    android:layout_marginBottom="4dp" />
+
+                <TextView
+                    android:id="@+id/tvIncorrectCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textSize="24sp"
+                    android:gravity="center" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Approximate time remaining, shown during test -->
+        <TextView
+            android:id="@+id/tvCountdown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="14sp"
+            android:visibility="gone"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Shortened-version checkbox: shown only on the start screen -->
+        <CheckBox
+            android:id="@+id/cbShortVersion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/short_version_label"
+            android:checked="false"
+            android:textSize="14sp"
+            android:layout_marginBottom="8dp"
+            android:gravity="center_vertical" />
+
+        <CheckBox
+            android:id="@+id/cbHideInfo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/hide_test_info_label"
+            android:checked="true"
+            android:textSize="14sp"
+            android:layout_marginBottom="16dp"
+            android:gravity="center_vertical" />
+
+        <Button
+            android:id="@+id/btnStartTest"
+            android:layout_width="240dp"
+            android:layout_height="80dp"
+            android:text="@string/begin"
+            android:textSize="22sp"
+            android:layout_marginBottom="8dp" />
+
+        <!-- dB calibration info link -->
+        <Button
+            android:id="@+id/btnDbInfo"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/db_info_button"
+            android:textSize="13sp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Big "I can hear it!" button shown during test -->
+        <Button
+            android:id="@+id/btnHeard"
+            android:layout_width="280dp"
+            android:layout_height="280dp"
+            android:text="@string/heard_it"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            android:backgroundTint="@color/heard_button_color" />
 
     </LinearLayout>
 
-    <!-- Approximate time remaining, shown during test -->
-    <TextView
-        android:id="@+id/tvCountdown"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text=""
-        android:textSize="14sp"
-        android:visibility="gone"
-        android:layout_marginBottom="24dp" />
-
-    <!-- Shortened-version checkbox: shown only on the start screen -->
-    <CheckBox
-        android:id="@+id/cbShortVersion"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/short_version_label"
-        android:checked="false"
-        android:textSize="14sp"
-        android:layout_marginBottom="8dp"
-        android:gravity="center_vertical" />
-
-    <CheckBox
-        android:id="@+id/cbHideInfo"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/hide_test_info_label"
-        android:checked="true"
-        android:textSize="14sp"
-        android:layout_marginBottom="16dp"
-        android:gravity="center_vertical" />
-
-    <Button
-        android:id="@+id/btnStartTest"
-        android:layout_width="240dp"
-        android:layout_height="80dp"
-        android:text="@string/begin"
-        android:textSize="22sp"
-        android:layout_marginBottom="24dp" />
-
-    <!-- Big "I can hear it!" button shown during test -->
-    <Button
-        android:id="@+id/btnHeard"
-        android:layout_width="280dp"
-        android:layout_height="280dp"
-        android:text="@string/heard_it"
-        android:textSize="28sp"
-        android:textStyle="bold"
-        android:visibility="gone"
-        android:backgroundTint="@color/heard_button_color" />
-
-</LinearLayout>
+</ScrollView>
