@@ -5,14 +5,22 @@ package com.felix.hormal.model
  */
 val FREQUENCIES = intArrayOf(250, 500, 1000, 2000, 4000, 8000)
 
+/** Sentinel value used when no tone was heard at the maximum test level. */
+private const val NO_RESPONSE_DB = 99
+
 /**
  * Calculates an overall hearing score (0–100) for the given bilateral thresholds relative
  * to the age-group norms. Higher is better.
  *
  * For each tested frequency / ear combination the per-point score is:
  *   - 100  if the threshold is at or below the "very good" norm for that frequency
- *   -   0  if the threshold is ≥ the "critical" norm or no response (99 dB) was recorded
- *   - linear interpolation between 0 and 100 for values between the two norms
+ *   -   0  if no response was recorded (threshold == 99 dB)
+ *   - linear interpolation between 0 and 100 for values in between
+ *
+ * The zero-score boundary is fixed at 99 dB (the no-response sentinel) so that the
+ * score only approaches 0 for severely impaired hearing; moderate impairments still
+ * yield a meaningful, non-zero score.  The "critical" norm is therefore only used for
+ * the recommendation text, not for the numeric score.
  *
  * The final score is the integer average over all included data points.
  * Frequencies with threshold == -1 (not tested in short mode) are excluded.
@@ -33,15 +41,14 @@ fun calculateHearingScore(
         if (left == -1 || right == -1) continue  // not tested in short mode
 
         val vg = norms.veryGood[i]
-        val crit = norms.critical[i]
-        val range = crit - vg
+        val range = NO_RESPONSE_DB - vg
 
         for (threshold in listOf(left, right)) {
             val freqScore = when {
-                threshold == 99 -> 0
+                threshold == NO_RESPONSE_DB -> 0
                 threshold <= vg -> 100
-                threshold >= crit || range <= 0 -> 0
-                else -> 100 * (crit - threshold) / range
+                range <= 0 -> 100
+                else -> 100 * (NO_RESPONSE_DB - threshold) / range
             }
             totalScore += freqScore
             count++
