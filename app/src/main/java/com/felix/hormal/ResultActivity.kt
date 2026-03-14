@@ -46,6 +46,12 @@ class ResultActivity : AppCompatActivity() {
             supportActionBar?.title = resultName ?: getString(R.string.results_title)
         }
 
+        // Show a notice when the test was aborted early so the user knows the results
+        // only reflect the frequencies that were actually measured.
+        if (intent.getBooleanExtra("PARTIAL_RESULT", false)) {
+            binding.tvPartialResultNotice.visibility = View.VISIBLE
+        }
+
         setupAgeSpinner(resultAgeGroupName)
         setupChart()
         showMeasurementStats()

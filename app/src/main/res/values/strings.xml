@@ -56,6 +56,9 @@
         <item quantity="one">Please only press the button when you actually hear a tone! You have 1 more chance before the test is stopped.</item>
         <item quantity="other">Please only press the button when you actually hear a tone! You have %d more chances before the test is stopped.</item>
     </plurals>
+    <!-- Partial result notice (shown when test was aborted) -->
+    <string name="partial_result_notice">⚠️ Test was not completed. Only the frequencies measured up to the point of stopping are shown.</string>
+
     <string name="update_available_title">Update Available</string>
     <string name="update_available_message">A new version is available: %1$s\n\nWould you like to download and install it now?</string>
     <string name="update_download">Download &amp; Install</string>

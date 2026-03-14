@@ -1,12 +1,15 @@
 package com.felix.hormal
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.MotionEvent
 import android.view.View
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -39,6 +42,9 @@ class TestActivity : AppCompatActivity(), VolumeWarningDialogFragment.Listener {
     private var correctResponses = 0
     private val leftThresholds = IntArray(FREQUENCIES.size) { 40 }
     private val rightThresholds = IntArray(FREQUENCIES.size) { 40 }
+    /** Tracks which frequencies have had a threshold successfully recorded (used on abort). */
+    private val leftMeasured = BooleanArray(FREQUENCIES.size) { false }
+    private val rightMeasured = BooleanArray(FREQUENCIES.size) { false }
     private var testRunning = false
     private var waitingForResponse = false
 
@@ -61,6 +67,13 @@ class TestActivity : AppCompatActivity(), VolumeWarningDialogFragment.Listener {
 
     private val TONE_DURATION_MS = 1500L
     private val RESPONSE_TIMEOUT_MS = 3000L
+
+    /**
+     * Larger dB step used when ascending before the first response for a frequency.
+     * Halves the number of ascending tones needed to find the audible range in
+     * children with moderate-to-severe hearing loss (thresholds ≥ 60 dB HL).
+     */
+    private val INITIAL_ASCENDING_STEP_DB = 20
 
     /** Insert a silent counter-check after every this many completed frequencies. */
     private val CHECK_INTERVAL = 1
@@ -101,21 +114,19 @@ class TestActivity : AppCompatActivity(), VolumeWarningDialogFragment.Listener {
         binding = ActivityTestBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.btnHeard.setOnClickListener {
-            if (isCounterCheckActive) {
-                onFalseClick()
-            } else if (isPreConfirmationPause) {
-                onFalseClickDuringPause()
-            } else if (waitingForResponse) {
-                if (isConfirmationActive) {
-                    onConfirmationHeard()
+        setupHeardButton()
+
+        // When the test is running, pressing back navigates to the partial results page.
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (testRunning) {
+                    navigateToResults()
                 } else {
-                    onHeardResponse()
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
                 }
-            } else if (testRunning && isInterToneDelay) {
-                onFalseClickDuringInterToneDelay()
             }
-        }
+        })
 
         binding.btnStartTest.setOnClickListener {
             hideTestInfo = binding.cbHideInfo.isChecked
@@ -135,6 +146,58 @@ class TestActivity : AppCompatActivity(), VolumeWarningDialogFragment.Listener {
             .setMessage(getString(R.string.db_info_message))
             .setPositiveButton(getString(R.string.ok), null)
             .show()
+    }
+
+    /**
+     * Attaches click and touch listeners to [binding.btnHeard].
+     *
+     * Children often swipe (drag) their finger instead of tapping precisely.
+     * The touch listener intercepts all touch events so that any ACTION_UP — whether
+     * from a tap or a swipe — is treated as a valid button press via [handleHeardButtonPress].
+     * The paired [setOnClickListener] keeps the accessibility contract correct (screen
+     * readers and assistive services can still activate the button via performClick).
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupHeardButton() {
+        binding.btnHeard.setOnClickListener {
+            handleHeardButtonPress()
+        }
+
+        binding.btnHeard.setOnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    v.isPressed = true
+                    true   // capture subsequent move/up events
+                }
+                MotionEvent.ACTION_UP -> {
+                    v.isPressed = false
+                    v.performClick()   // delegates to setOnClickListener → handleHeardButtonPress
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    v.isPressed = false
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    /** Single entry-point for all button-press events on [binding.btnHeard]. */
+    private fun handleHeardButtonPress() {
+        if (isCounterCheckActive) {
+            onFalseClick()
+        } else if (isPreConfirmationPause) {
+            onFalseClickDuringPause()
+        } else if (waitingForResponse) {
+            if (isConfirmationActive) {
+                onConfirmationHeard()
+            } else {
+                onHeardResponse()
+            }
+        } else if (testRunning && isInterToneDelay) {
+            onFalseClickDuringInterToneDelay()
+        }
     }
 
     /**
@@ -193,6 +256,8 @@ class TestActivity : AppCompatActivity(), VolumeWarningDialogFragment.Listener {
         // Initialise all thresholds; mark frequencies skipped in short mode with -1
         leftThresholds.fill(40)
         rightThresholds.fill(40)
+        leftMeasured.fill(false)
+        rightMeasured.fill(false)
         if (isShortVersion) {
             for (i in FREQUENCIES.indices) {
                 if (i !in shortFreqIndices) {
@@ -282,17 +347,20 @@ class TestActivity : AppCompatActivity(), VolumeWarningDialogFragment.Listener {
 
         when {
             hadPriorResponse -> {
-                // User heard at the level above (currentDb + 10) but not at this lower level.
+                // User heard at the level above (currentDb + STEP_DB) but not at this lower level.
                 // Restore to the confirmed level and record it as the threshold.
-                currentDb = (currentDb + 10).coerceAtMost(90)
+                currentDb = (currentDb + STEP_DB).coerceAtMost(MAX_DB)
                 recordThreshold()
             }
-            currentDb >= 90 -> {
+            currentDb >= MAX_DB -> {
                 // No hearing found at max level; mark as 99 (no response)
                 recordThreshold(noResponse = true)
             }
             else -> {
-                currentDb = (currentDb + 10).coerceAtMost(90)
+                // Still in the initial ascending search (no response seen yet for this frequency).
+                // Use INITIAL_ASCENDING_STEP_DB (20 dB) instead of STEP_DB (10 dB) to reach the
+                // audible range in roughly half the number of tones for high hearing thresholds.
+                currentDb = (currentDb + INITIAL_ASCENDING_STEP_DB).coerceAtMost(MAX_DB)
                 scheduleNextTone(randomInterToneDelayMs())
             }
         }
@@ -420,8 +488,10 @@ class TestActivity : AppCompatActivity(), VolumeWarningDialogFragment.Listener {
         val threshold = if (noResponse) 99 else currentDb
         if (testingLeftEar) {
             leftThresholds[currentFreqStoreIndex] = threshold
+            leftMeasured[currentFreqStoreIndex] = true
         } else {
             rightThresholds[currentFreqStoreIndex] = threshold
+            rightMeasured[currentFreqStoreIndex] = true
         }
 
         // Update the live audiogram with the newly recorded threshold
@@ -550,17 +620,47 @@ class TestActivity : AppCompatActivity(), VolumeWarningDialogFragment.Listener {
             .show()
     }
 
-    /** Shows an abort dialog after too many false clicks; pressing OK exits the activity. */
+    /** Shows an abort dialog after too many false clicks; pressing OK shows partial results. */
     private fun showTooManyFalseClicksDialog() {
         testRunning = false
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.counter_check_abort_title))
             .setMessage(getString(R.string.counter_check_abort_message))
             .setPositiveButton(getString(R.string.ok)) { _, _ ->
-                finish()
+                navigateToResults()
             }
             .setCancelable(false)
             .show()
+    }
+
+    /**
+     * Stops the test and navigates to [ResultActivity] with whatever thresholds have been
+     * recorded so far.  Frequencies that were not yet measured are marked as -1 so that
+     * [ResultActivity] skips them in the chart and scoring (same convention used by the
+     * short-version test for untested frequencies).
+     *
+     * This is called both when the test is aborted due to too many false clicks and when
+     * the user presses back while the test is running.
+     */
+    private fun navigateToResults() {
+        testRunning = false
+        handler.removeCallbacksAndMessages(null)
+        toneGen.stop()
+
+        // Mark every frequency that was never successfully measured as -1 (skipped).
+        for (i in FREQUENCIES.indices) {
+            if (!leftMeasured[i]) leftThresholds[i] = -1
+            if (!rightMeasured[i]) rightThresholds[i] = -1
+        }
+
+        val intent = Intent(this, ResultActivity::class.java).apply {
+            putExtra("LEFT_THRESHOLDS", leftThresholds)
+            putExtra("RIGHT_THRESHOLDS", rightThresholds)
+            putStringArrayListExtra("MEASUREMENTS", measurements)
+            putExtra("PARTIAL_RESULT", true)
+        }
+        startActivity(intent)
+        finish()
     }
 
     private fun finishTest() {
