@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
@@ -41,17 +42,33 @@ class HistoryActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = getString(R.string.history_title)
 
-        adapter = ResultsAdapter { result ->
-            val intent = Intent(this, ResultActivity::class.java).apply {
-                putExtra("LEFT_THRESHOLDS", result.leftEarValues())
-                putExtra("RIGHT_THRESHOLDS", result.rightEarValues())
-                putExtra("RESULT_NAME", result.name)
-                putExtra("RESULT_AGE_GROUP", result.ageGroup)
-                putStringArrayListExtra("MEASUREMENTS", result.measurementList())
-                putExtra("READ_ONLY", true)
+        val db = AppDatabase.getInstance(applicationContext)
+
+        adapter = ResultsAdapter(
+            onClick = { result ->
+                val intent = Intent(this, ResultActivity::class.java).apply {
+                    putExtra("LEFT_THRESHOLDS", result.leftEarValues())
+                    putExtra("RIGHT_THRESHOLDS", result.rightEarValues())
+                    putExtra("RESULT_NAME", result.name)
+                    putExtra("RESULT_AGE_GROUP", result.ageGroup)
+                    putStringArrayListExtra("MEASUREMENTS", result.measurementList())
+                    putExtra("READ_ONLY", true)
+                }
+                startActivity(intent)
+            },
+            onDelete = { result ->
+                AlertDialog.Builder(this)
+                    .setTitle(getString(R.string.delete_confirm_title))
+                    .setMessage(getString(R.string.delete_confirm_message, result.name))
+                    .setPositiveButton(getString(R.string.delete_confirm_yes)) { _, _ ->
+                        lifecycleScope.launch {
+                            db.hearingResultDao().delete(result)
+                        }
+                    }
+                    .setNegativeButton(getString(R.string.delete_confirm_no), null)
+                    .show()
             }
-            startActivity(intent)
-        }
+        )
 
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
@@ -72,7 +89,7 @@ class HistoryActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch {
-            AppDatabase.getInstance(applicationContext).hearingResultDao().getAllResults().collect { results ->
+            db.hearingResultDao().getAllResults().collect { results ->
                 allResults = results
                 submitCurrentList()
             }
@@ -104,7 +121,8 @@ private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<HearingResult>() {
 }
 
 class ResultsAdapter(
-    private val onClick: (HearingResult) -> Unit
+    private val onClick: (HearingResult) -> Unit,
+    private val onDelete: (HearingResult) -> Unit
 ) : ListAdapter<HearingResult, ResultsAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     private var showRanks = false
@@ -148,6 +166,7 @@ class ResultsAdapter(
             binding.tvResultScore.text = "$emoji  ${binding.root.context.getString(R.string.score_display, score)}"
 
             binding.root.setOnClickListener { onClick(result) }
+            binding.btnDeleteResult.setOnClickListener { onDelete(result) }
         }
     }
 

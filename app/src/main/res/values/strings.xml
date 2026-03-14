@@ -62,6 +62,21 @@
     <string name="update_later">Later</string>
     <string name="update_downloading">Downloading update…</string>
 
+    <!-- dB calibration info -->
+    <string name="db_info_button">ℹ️ How are dB values measured?</string>
+    <string name="db_info_title">📏 dB Calibration &amp; Accuracy</string>
+    <string name="db_info_message">The test uses a relative dB HL (Hearing Level) scale where 90 dB HL equals full digital amplitude at maximum device volume.\n\nFor the dB values to be accurate:\n• Use over-ear or in-ear headphones (not phone speakers)\n• Set device media volume to maximum (the app will prompt you)\n• Sit in a quiet room free from background noise\n\nWithout a hardware-calibrated audiometer (per ISO 8253-1), the absolute dB values are estimates. However, the relative differences between frequencies and ears are reliable and sufficient for a hearing screening.\n\nThe age-group reference lines in the results are based on ISO 7029 population norms.</string>
+
+    <!-- Live audiogram during test -->
+    <string name="live_audiogram_legend">● Left ear  |  × Right ear  (dB HL, lower = better)</string>
+
+    <!-- Delete result -->
+    <string name="delete_result">Delete result</string>
+    <string name="delete_confirm_title">Delete result?</string>
+    <string name="delete_confirm_message">Are you sure you want to permanently delete "%1$s"?</string>
+    <string name="delete_confirm_yes">Delete</string>
+    <string name="delete_confirm_no">Cancel</string>
+
     <!-- Score & leaderboard -->
     <string name="score_label">Overall Score</string>
     <string name="score_display">Score: %1$d / 100</string>

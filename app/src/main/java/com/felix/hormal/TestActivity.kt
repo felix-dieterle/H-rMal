@@ -121,6 +121,19 @@ class TestActivity : AppCompatActivity() {
             isShortVersion = binding.cbShortVersion.isChecked
             checkVolumeAndStart()
         }
+
+        binding.btnDbInfo.setOnClickListener {
+            showDbCalibrationInfo()
+        }
+    }
+
+    /** Shows a dialog explaining how the dB HL values are scaled and what affects accuracy. */
+    private fun showDbCalibrationInfo() {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.db_info_title))
+            .setMessage(getString(R.string.db_info_message))
+            .setPositiveButton(getString(R.string.ok), null)
+            .show()
     }
 
     /**
@@ -188,9 +201,14 @@ class TestActivity : AppCompatActivity() {
         binding.btnStartTest.visibility = View.GONE
         binding.cbHideInfo.visibility = View.GONE
         binding.cbShortVersion.visibility = View.GONE
+        binding.btnDbInfo.visibility = View.GONE
         binding.btnHeard.visibility = View.VISIBLE
         binding.layoutCounters.visibility = View.VISIBLE
         binding.tvCountdown.visibility = View.VISIBLE
+        binding.liveAudiogram.visibility = View.VISIBLE
+        binding.tvAudiogramLegend.visibility = View.VISIBLE
+        binding.liveAudiogram.reset()
+        binding.stickFigure.setCorrectCount(0)
         binding.tvInstructions.text = getString(R.string.test_instructions)
 
         updateCounters()
@@ -400,6 +418,9 @@ class TestActivity : AppCompatActivity() {
             rightThresholds[currentFreqStoreIndex] = threshold
         }
 
+        // Update the live audiogram with the newly recorded threshold
+        binding.liveAudiogram.setThreshold(currentFreqStoreIndex, threshold, testingLeftEar)
+
         if (!noResponse) {
             // Re-verify the boundary threshold: play the tone once more after a
             // random pause to ensure the first response was genuine.
@@ -544,6 +565,8 @@ class TestActivity : AppCompatActivity() {
         binding.btnHeard.visibility = View.GONE
         binding.layoutCounters.visibility = View.GONE
         binding.tvCountdown.visibility = View.GONE
+        binding.liveAudiogram.visibility = View.GONE
+        binding.tvAudiogramLegend.visibility = View.GONE
         binding.tvStatus.text = getString(R.string.test_complete_with_jingle)
 
         playEndJingle {
@@ -620,7 +643,7 @@ class TestActivity : AppCompatActivity() {
         binding.tvFeedback.visibility = View.INVISIBLE
     }
 
-    /** Updates the ⭐/❌ counters shown to the child during the test. */
+    /** Updates the ⭐/❌ counters and the stick figure shown to the child during the test. */
     private fun updateCounters() {
         val stars = if (motivationCorrectCount <= MAX_VISIBLE_STARS) {
             "⭐".repeat(motivationCorrectCount)
@@ -629,6 +652,7 @@ class TestActivity : AppCompatActivity() {
         }
         binding.tvCorrectCount.text = stars
         binding.tvIncorrectCount.text = "❌".repeat(falseClickCount)
+        binding.stickFigure.setCorrectCount(motivationCorrectCount)
     }
 
     /**
