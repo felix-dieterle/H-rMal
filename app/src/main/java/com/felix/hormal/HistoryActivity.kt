@@ -18,6 +18,7 @@ import com.felix.hormal.databinding.ItemResultBinding
 import com.felix.hormal.model.AgeGroup
 import com.felix.hormal.model.calculateHearingScore
 import com.felix.hormal.model.resolveAgeGroup
+import com.felix.hormal.model.scoreEmoji
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -98,15 +99,17 @@ class HistoryActivity : AppCompatActivity() {
 
     /** Submits the correctly sorted list to the adapter. */
     private fun submitCurrentList() {
+        // Pre-compute scores once so sorting and binding both reuse the same values.
+        val scores: Map<Long, Int> = allResults.associate { result ->
+            val ageGroup = resolveAgeGroup(result.ageGroup)
+            result.id to calculateHearingScore(result.leftEarValues(), result.rightEarValues(), ageGroup)
+        }
         val sorted = if (sortByScore) {
-            allResults.sortedByDescending { result ->
-                val ageGroup = resolveAgeGroup(result.ageGroup)
-                calculateHearingScore(result.leftEarValues(), result.rightEarValues(), ageGroup)
-            }
+            allResults.sortedByDescending { scores[it.id] ?: 0 }
         } else {
             allResults  // already ordered by timestamp DESC from the DAO query
         }
-        adapter.submitList(sorted, showRanks = sortByScore)
+        adapter.submitList(sorted, showRanks = sortByScore, scores = scores)
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -127,15 +130,31 @@ class ResultsAdapter(
 
     private var showRanks = false
 
-    fun submitList(list: List<HearingResult>, showRanks: Boolean) {
+    /** Cached scores keyed by result ID, computed once during sort in the activity. */
+    private var scoreCache: Map<Long, Int> = emptyMap()
+
+    /**
+     * Submits [list] to the adapter.
+     *
+     * @param showRanks When true, rank badges (🥇/🥈/🥉/#N) are shown.
+     * @param scores    Pre-computed hearing scores keyed by [HearingResult.id].
+     *                  Should always be supplied by the activity so scores are
+     *                  computed only once.  The default empty map triggers a
+     *                  lazy per-item fallback computation in [ViewHolder.bind].
+     */
+    fun submitList(list: List<HearingResult>, showRanks: Boolean, scores: Map<Long, Int> = emptyMap()) {
         this.showRanks = showRanks
+        this.scoreCache = scores
         submitList(list)
     }
 
     inner class ViewHolder(private val binding: ItemResultBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(result: HearingResult, rank: Int?) {
-            val ageGroup = resolveAgeGroup(result.ageGroup)
-            val score = calculateHearingScore(result.leftEarValues(), result.rightEarValues(), ageGroup)
+            // Use pre-computed score when available, otherwise compute on demand (e.g. initial load)
+            val score = scoreCache[result.id] ?: run {
+                val ageGroup = resolveAgeGroup(result.ageGroup)
+                calculateHearingScore(result.leftEarValues(), result.rightEarValues(), ageGroup)
+            }
 
             val namePrefix = when (rank) {
                 1 -> "🥇 "
@@ -157,13 +176,7 @@ class ResultsAdapter(
                 }
                 .replace(Regex("(\\d) (\\d)"), "$1-$2")
 
-            val emoji = when {
-                score >= 80 -> "🏆"
-                score >= 60 -> "✅"
-                score >= 40 -> "⚠️"
-                else        -> "🔴"
-            }
-            binding.tvResultScore.text = "$emoji  ${binding.root.context.getString(R.string.score_display, score)}"
+            binding.tvResultScore.text = "${scoreEmoji(score)}  ${binding.root.context.getString(R.string.score_display, score)}"
 
             binding.root.setOnClickListener { onClick(result) }
             binding.btnDeleteResult.setOnClickListener { onDelete(result) }

@@ -10,12 +10,13 @@ import android.view.View
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.DialogFragment
 import com.felix.hormal.audio.Ear
 import com.felix.hormal.audio.ToneGenerator
 import com.felix.hormal.databinding.ActivityTestBinding
 import com.felix.hormal.model.FREQUENCIES
 
-class TestActivity : AppCompatActivity() {
+class TestActivity : AppCompatActivity(), VolumeWarningDialogFragment.Listener {
 
     private lateinit var binding: ActivityTestBinding
     private val toneGen = ToneGenerator()
@@ -144,26 +145,31 @@ class TestActivity : AppCompatActivity() {
      * loudness and would skew the measured hearing thresholds.
      */
     private fun checkVolumeAndStart() {
-        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        if (audioManager == null) {
+            startTest()
+            return
+        }
         val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
         val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
 
         if (currentVolume < maxVolume) {
-            AlertDialog.Builder(this)
-                .setTitle(getString(R.string.volume_warning_title))
-                .setMessage(getString(R.string.volume_warning_message, currentVolume, maxVolume))
-                .setPositiveButton(getString(R.string.volume_set_max)) { _, _ ->
-                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxVolume, 0)
-                    startTest()
-                }
-                .setNegativeButton(getString(R.string.volume_continue_anyway)) { _, _ ->
-                    startTest()
-                }
-                .setCancelable(false)
-                .show()
+            VolumeWarningDialogFragment.newInstance(currentVolume, maxVolume)
+                .show(supportFragmentManager, VolumeWarningDialogFragment.TAG)
         } else {
             startTest()
         }
+    }
+
+    // VolumeWarningDialogFragment.Listener
+    override fun onSetMax(maxVolume: Int) {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, maxVolume, 0)
+        startTest()
+    }
+
+    override fun onContinueAnyway() {
+        startTest()
     }
 
     private fun startTest() {
@@ -673,5 +679,58 @@ class TestActivity : AppCompatActivity() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
         toneGen.stop()
+    }
+}
+
+/**
+ * DialogFragment that prompts the user to raise the device media volume to maximum
+ * before starting the hearing test, ensuring comparable results across sessions.
+ *
+ * Using a DialogFragment instead of a plain AlertDialog prevents window-leaked-dialog
+ * crashes when the activity is destroyed while the dialog is still visible (e.g. on
+ * screen rotation).
+ */
+class VolumeWarningDialogFragment : DialogFragment() {
+
+    companion object {
+        const val TAG = "VolumeWarningDialog"
+        private const val ARG_CURRENT = "currentVolume"
+        private const val ARG_MAX = "maxVolume"
+
+        fun newInstance(currentVolume: Int, maxVolume: Int) = VolumeWarningDialogFragment().apply {
+            arguments = Bundle().apply {
+                putInt(ARG_CURRENT, currentVolume)
+                putInt(ARG_MAX, maxVolume)
+            }
+        }
+    }
+
+    /** Implemented by the host activity to react to the user's choice. */
+    interface Listener {
+        fun onSetMax(maxVolume: Int)
+        fun onContinueAnyway()
+    }
+
+    override fun onAttach(context: android.content.Context) {
+        super.onAttach(context)
+        check(context is Listener) {
+            "${context.javaClass.simpleName} must implement VolumeWarningDialogFragment.Listener"
+        }
+    }
+
+    override fun onCreateDialog(savedInstanceState: Bundle?): android.app.Dialog {
+        val current = requireArguments().getInt(ARG_CURRENT)
+        val max = requireArguments().getInt(ARG_MAX)
+        return AlertDialog.Builder(requireContext())
+            .setTitle(R.string.volume_warning_title)
+            .setMessage(getString(R.string.volume_warning_message, current, max))
+            .setPositiveButton(R.string.volume_set_max) { _, _ ->
+                (activity as? Listener)?.onSetMax(max)
+            }
+            .setNegativeButton(R.string.volume_continue_anyway) { _, _ ->
+                (activity as? Listener)?.onContinueAnyway()
+            }
+            .setCancelable(false)
+            .create()
     }
 }

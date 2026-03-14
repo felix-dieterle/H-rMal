@@ -59,6 +59,24 @@ fun calculateHearingScore(
 fun resolveAgeGroup(name: String?): AgeGroup =
     AgeGroup.values().firstOrNull { it.name == name } ?: AgeGroup.YOUNG_ADULT_18_35
 
+/**
+ * Returns the emoji that represents the given [score] quality band:
+ * - 🏆  80–100  (excellent)
+ * - ✅  60–79   (good)
+ * - ⚠️  40–59   (fair)
+ * - 🔴   0–39   (poor)
+ *
+ * Centralised here so the thresholds are defined in exactly one place.
+ *
+ * @param score The overall hearing score in the range 0–100.
+ */
+fun scoreEmoji(score: Int): String = when {
+    score >= 80 -> "🏆"
+    score >= 60 -> "✅"
+    score >= 40 -> "⚠️"
+    else        -> "🔴"
+}
+
 enum class AgeGroup(val label: String) {
     CHILDREN_5_12("Children (5–12)"),
     TEEN_13_17("Teenagers (13–17)"),

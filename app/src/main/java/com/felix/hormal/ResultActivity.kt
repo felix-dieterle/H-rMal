@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.felix.hormal.data.AppDatabase
 import com.felix.hormal.data.HearingResult
@@ -265,13 +266,7 @@ class ResultActivity : AppCompatActivity() {
      */
     private fun showScore() {
         val score = calculateHearingScore(leftThresholds, rightThresholds, selectedAgeGroup)
-        val emoji = when {
-            score >= 80 -> "🏆"
-            score >= 60 -> "✅"
-            score >= 40 -> "⚠️"
-            else        -> "🔴"
-        }
-        binding.tvScore.text = "$emoji  ${getString(R.string.score_display, score)}"
+        binding.tvScore.text = "${scoreEmoji(score)}  ${getString(R.string.score_display, score)}"
     }
 
     private fun setupSaveButton() {
@@ -309,11 +304,8 @@ class ResultActivity : AppCompatActivity() {
                     binding.btnSave.text = getString(R.string.saved)
 
                     if (isHighScore) {
-                        androidx.appcompat.app.AlertDialog.Builder(this@ResultActivity)
-                            .setTitle(getString(R.string.new_high_score_title))
-                            .setMessage(getString(R.string.new_high_score_message, newScore))
-                            .setPositiveButton(getString(R.string.ok), null)
-                            .show()
+                        HighScoreDialogFragment.newInstance(newScore)
+                            .show(supportFragmentManager, HighScoreDialogFragment.TAG)
                     } else {
                         Toast.makeText(this@ResultActivity, getString(R.string.result_saved), Toast.LENGTH_SHORT).show()
                     }
@@ -325,5 +317,33 @@ class ResultActivity : AppCompatActivity() {
     override fun onSupportNavigateUp(): Boolean {
         onBackPressedDispatcher.onBackPressed()
         return true
+    }
+}
+
+/**
+ * DialogFragment that announces a new personal best score after saving a result.
+ *
+ * Using a DialogFragment instead of a plain AlertDialog prevents window-leaked-dialog
+ * crashes when the activity is destroyed while the dialog is still visible (e.g. on
+ * screen rotation).
+ */
+class HighScoreDialogFragment : DialogFragment() {
+
+    companion object {
+        const val TAG = "HighScoreDialog"
+        private const val ARG_SCORE = "score"
+
+        fun newInstance(score: Int) = HighScoreDialogFragment().apply {
+            arguments = Bundle().apply { putInt(ARG_SCORE, score) }
+        }
+    }
+
+    override fun onCreateDialog(savedInstanceState: Bundle?): android.app.Dialog {
+        val score = requireArguments().getInt(ARG_SCORE)
+        return androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle(R.string.new_high_score_title)
+            .setMessage(getString(R.string.new_high_score_message, score))
+            .setPositiveButton(R.string.ok, null)
+            .create()
     }
 }
