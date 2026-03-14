@@ -17,6 +17,18 @@
             android:textStyle="bold"
             android:layout_marginBottom="8dp" />
 
+        <!-- Banner shown when the test was aborted and only partial results are available -->
+        <TextView
+            android:id="@+id/tvPartialResultNotice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/partial_result_notice"
+            android:textSize="14sp"
+            android:padding="10dp"
+            android:layout_marginBottom="8dp"
+            android:background="@color/partial_result_banner_bg"
+            android:visibility="gone" />
+
         <!-- Age group selector -->
         <TextView
             android:layout_width="wrap_content"
