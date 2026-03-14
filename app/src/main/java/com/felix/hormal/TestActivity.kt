@@ -151,6 +151,7 @@ class TestActivity : AppCompatActivity() {
         } else {
             startTest()
         }
+    }
 
     private fun startTest() {
         activeFreqIndices = if (isShortVersion) shortFreqIndices else IntArray(FREQUENCIES.size) { it }
