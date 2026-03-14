@@ -209,17 +209,18 @@ class ResultActivity : AppCompatActivity() {
         sb.append(getString(R.string.total_measurements, total)).append("\n")
         sb.append(getString(R.string.heard_rate, heardCount, heardPct)).append("\n")
         sb.append(getString(R.string.not_heard_rate, notHeardCount, 100 - heardPct)).append("\n\n")
-        sb.append(getString(R.string.per_frequency_label)).append("\n")
+        sb.append(getString(R.string.measurements_in_order_label)).append("\n")
 
-        FREQUENCIES.forEach { freq ->
-            val freqLabel = if (freq >= 1000) "${freq / 1000}k" else "$freq"
-            val lEntries = measurements.filter { it.startsWith("L,$freq,") }
-            val rEntries = measurements.filter { it.startsWith("R,$freq,") }
-            val lHeard = lEntries.count { it.endsWith(",1") }
-            val lNotHeard = lEntries.size - lHeard
-            val rHeard = rEntries.count { it.endsWith(",1") }
-            val rNotHeard = rEntries.size - rHeard
-            sb.append(getString(R.string.freq_breakdown, freqLabel, lHeard, lNotHeard, rHeard, rNotHeard)).append("\n")
+        measurements.forEachIndexed { index, measurement ->
+            val parts = measurement.split(",")
+            if (parts.size != 4) return@forEachIndexed
+            val ear = parts[0]
+            val freqHz = parts[1].toIntOrNull() ?: return@forEachIndexed
+            val dB = parts[2].toIntOrNull() ?: return@forEachIndexed
+            val heard = parts[3] == "1"
+            val freqLabel = if (freqHz >= 1000) "${freqHz / 1000}k" else "$freqHz"
+            val heardLabel = if (heard) "✓" else "✗"
+            sb.append(getString(R.string.measurement_row, index + 1, ear, freqLabel, dB, heardLabel)).append("\n")
         }
 
         binding.tvMeasurementStats.text = sb.toString()
