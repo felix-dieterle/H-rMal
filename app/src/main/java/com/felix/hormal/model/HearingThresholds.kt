@@ -5,6 +5,60 @@ package com.felix.hormal.model
  */
 val FREQUENCIES = intArrayOf(250, 500, 1000, 2000, 4000, 8000)
 
+/**
+ * Calculates an overall hearing score (0–100) for the given bilateral thresholds relative
+ * to the age-group norms. Higher is better.
+ *
+ * For each tested frequency / ear combination the per-point score is:
+ *   - 100  if the threshold is at or below the "very good" norm for that frequency
+ *   -   0  if the threshold is ≥ the "critical" norm or no response (99 dB) was recorded
+ *   - linear interpolation between 0 and 100 for values between the two norms
+ *
+ * The final score is the integer average over all included data points.
+ * Frequencies with threshold == -1 (not tested in short mode) are excluded.
+ */
+fun calculateHearingScore(
+    leftThresholds: IntArray,
+    rightThresholds: IntArray,
+    ageGroup: AgeGroup
+): Int {
+    val norms = AGE_THRESHOLDS[ageGroup] ?: return 0
+    var totalScore = 0
+    var count = 0
+
+    for (i in FREQUENCIES.indices) {
+        val left = leftThresholds.getOrElse(i) { -1 }
+        val right = rightThresholds.getOrElse(i) { -1 }
+
+        if (left == -1 || right == -1) continue  // not tested in short mode
+
+        val vg = norms.veryGood[i]
+        val crit = norms.critical[i]
+        val range = crit - vg
+
+        for (threshold in listOf(left, right)) {
+            val freqScore = when {
+                threshold == 99 -> 0
+                threshold <= vg -> 100
+                threshold >= crit || range <= 0 -> 0
+                else -> 100 * (crit - threshold) / range
+            }
+            totalScore += freqScore
+            count++
+        }
+    }
+
+    return if (count > 0) totalScore / count else 0
+}
+
+/**
+ * Resolves an [AgeGroup] from its persisted [name] string.
+ * Falls back to [AgeGroup.YOUNG_ADULT_18_35] if the name cannot be matched
+ * (e.g. after a database migration where an old enum value was renamed).
+ */
+fun resolveAgeGroup(name: String?): AgeGroup =
+    AgeGroup.values().firstOrNull { it.name == name } ?: AgeGroup.YOUNG_ADULT_18_35
+
 enum class AgeGroup(val label: String) {
     CHILDREN_5_12("Children (5–12)"),
     TEEN_13_17("Teenagers (13–17)"),

@@ -61,4 +61,20 @@
     <string name="update_download">Download &amp; Install</string>
     <string name="update_later">Later</string>
     <string name="update_downloading">Downloading update…</string>
+
+    <!-- Score & leaderboard -->
+    <string name="score_label">Overall Score</string>
+    <string name="score_display">Score: %1$d / 100</string>
+    <string name="new_high_score_title">🏆 New High Score!</string>
+    <string name="new_high_score_message">Congratulations! This is your best result with a score of %1$d / 100!</string>
+    <string name="leaderboard_title">🏆 Ranking</string>
+    <string name="sort_by_date">Sort by Date</string>
+    <string name="sort_by_score">🏆 Ranking</string>
+    <string name="rank_label">#%1$d</string>
+
+    <!-- Volume check -->
+    <string name="volume_warning_title">🔊 Volume Check</string>
+    <string name="volume_warning_message">For accurate and comparable test results the media volume should be at maximum.\n\nCurrent level: %1$d / %2$d\n\nSet the volume to maximum now?</string>
+    <string name="volume_set_max">Set to Maximum</string>
+    <string name="volume_continue_anyway">Continue Anyway</string>
 </resources>

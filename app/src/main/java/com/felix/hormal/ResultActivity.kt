@@ -49,6 +49,7 @@ class ResultActivity : AppCompatActivity() {
         setupChart()
         showMeasurementStats()
         showRecommendation()
+        showScore()
         if (!readOnly) {
             setupSaveButton()
             resultName?.let { binding.etName.setText(it) }
@@ -73,6 +74,7 @@ class ResultActivity : AppCompatActivity() {
                 selectedAgeGroup = ageGroups[pos]
                 updateChart()
                 showRecommendation()
+                showScore()
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
@@ -257,6 +259,21 @@ class ResultActivity : AppCompatActivity() {
         binding.tvRecommendation.text = text
     }
 
+    /**
+     * Computes the overall hearing score (0–100) for the currently selected age group
+     * and displays it in [binding.tvScore].  The emoji prefix reflects the quality band.
+     */
+    private fun showScore() {
+        val score = calculateHearingScore(leftThresholds, rightThresholds, selectedAgeGroup)
+        val emoji = when {
+            score >= 80 -> "🏆"
+            score >= 60 -> "✅"
+            score >= 40 -> "⚠️"
+            else        -> "🔴"
+        }
+        binding.tvScore.text = "$emoji  ${getString(R.string.score_display, score)}"
+    }
+
     private fun setupSaveButton() {
         binding.btnSave.setOnClickListener {
             val name = binding.etName.text.toString().trim()
@@ -274,11 +291,32 @@ class ResultActivity : AppCompatActivity() {
             )
 
             lifecycleScope.launch {
-                AppDatabase.getInstance(applicationContext).hearingResultDao().insert(result)
+                val dao = AppDatabase.getInstance(applicationContext).hearingResultDao()
+
+                // Determine whether this is a new high score before inserting
+                val newScore = calculateHearingScore(leftThresholds, rightThresholds, selectedAgeGroup)
+                val allResults = dao.getAllResultsOnce()
+                val previousBest = allResults.maxOfOrNull { saved ->
+                    val savedAgeGroup = resolveAgeGroup(saved.ageGroup)
+                    calculateHearingScore(saved.leftEarValues(), saved.rightEarValues(), savedAgeGroup)
+                } ?: -1
+                val isHighScore = newScore > previousBest
+
+                dao.insert(result)
+
                 runOnUiThread {
-                    Toast.makeText(this@ResultActivity, getString(R.string.result_saved), Toast.LENGTH_SHORT).show()
                     binding.btnSave.isEnabled = false
                     binding.btnSave.text = getString(R.string.saved)
+
+                    if (isHighScore) {
+                        androidx.appcompat.app.AlertDialog.Builder(this@ResultActivity)
+                            .setTitle(getString(R.string.new_high_score_title))
+                            .setMessage(getString(R.string.new_high_score_message, newScore))
+                            .setPositiveButton(getString(R.string.ok), null)
+                            .show()
+                    } else {
+                        Toast.makeText(this@ResultActivity, getString(R.string.result_saved), Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }

@@ -72,6 +72,33 @@
 
         </LinearLayout>
 
+        <!-- Overall score section -->
+        <LinearLayout
+            android:id="@+id/scoreSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/score_label"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/tvScore"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:padding="12dp" />
+
+        </LinearLayout>
+
         <!-- Measurement statistics -->
         <LinearLayout
             android:id="@+id/measurementStatsSection"

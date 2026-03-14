@@ -14,6 +14,9 @@ import com.felix.hormal.data.AppDatabase
 import com.felix.hormal.data.HearingResult
 import com.felix.hormal.databinding.ActivityHistoryBinding
 import com.felix.hormal.databinding.ItemResultBinding
+import com.felix.hormal.model.AgeGroup
+import com.felix.hormal.model.calculateHearingScore
+import com.felix.hormal.model.resolveAgeGroup
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -21,6 +24,14 @@ import java.util.*
 class HistoryActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityHistoryBinding
+
+    /** When true the list is sorted by score descending (Ranking mode). */
+    private var sortByScore = false
+
+    /** All results currently loaded from the database. */
+    private var allResults: List<HearingResult> = emptyList()
+
+    private lateinit var adapter: ResultsAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,7 +41,7 @@ class HistoryActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = getString(R.string.history_title)
 
-        val adapter = ResultsAdapter { result ->
+        adapter = ResultsAdapter { result ->
             val intent = Intent(this, ResultActivity::class.java).apply {
                 putExtra("LEFT_THRESHOLDS", result.leftEarValues())
                 putExtra("RIGHT_THRESHOLDS", result.rightEarValues())
@@ -45,11 +56,40 @@ class HistoryActivity : AppCompatActivity() {
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
 
+        binding.btnToggleSort.setOnClickListener {
+            sortByScore = !sortByScore
+            binding.btnToggleSort.text = if (sortByScore) {
+                getString(R.string.sort_by_date)
+            } else {
+                getString(R.string.sort_by_score)
+            }
+            supportActionBar?.title = if (sortByScore) {
+                getString(R.string.leaderboard_title)
+            } else {
+                getString(R.string.history_title)
+            }
+            submitCurrentList()
+        }
+
         lifecycleScope.launch {
             AppDatabase.getInstance(applicationContext).hearingResultDao().getAllResults().collect { results ->
-                adapter.submitList(results)
+                allResults = results
+                submitCurrentList()
             }
         }
+    }
+
+    /** Submits the correctly sorted list to the adapter. */
+    private fun submitCurrentList() {
+        val sorted = if (sortByScore) {
+            allResults.sortedByDescending { result ->
+                val ageGroup = resolveAgeGroup(result.ageGroup)
+                calculateHearingScore(result.leftEarValues(), result.rightEarValues(), ageGroup)
+            }
+        } else {
+            allResults  // already ordered by timestamp DESC from the DAO query
+        }
+        adapter.submitList(sorted, showRanks = sortByScore)
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -67,9 +107,27 @@ class ResultsAdapter(
     private val onClick: (HearingResult) -> Unit
 ) : ListAdapter<HearingResult, ResultsAdapter.ViewHolder>(DIFF_CALLBACK) {
 
+    private var showRanks = false
+
+    fun submitList(list: List<HearingResult>, showRanks: Boolean) {
+        this.showRanks = showRanks
+        submitList(list)
+    }
+
     inner class ViewHolder(private val binding: ItemResultBinding) : RecyclerView.ViewHolder(binding.root) {
-        fun bind(result: HearingResult) {
-            binding.tvResultName.text = result.name
+        fun bind(result: HearingResult, rank: Int?) {
+            val ageGroup = resolveAgeGroup(result.ageGroup)
+            val score = calculateHearingScore(result.leftEarValues(), result.rightEarValues(), ageGroup)
+
+            val namePrefix = when (rank) {
+                1 -> "🥇 "
+                2 -> "🥈 "
+                3 -> "🥉 "
+                null -> ""
+                else -> "#$rank  "
+            }
+            binding.tvResultName.text = "$namePrefix${result.name}"
+
             val sdf = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
             binding.tvResultDate.text = sdf.format(Date(result.timestamp))
             // Format age group: "YOUNG_ADULT_18_35" → "Young Adult 18-35"
@@ -80,6 +138,15 @@ class ResultsAdapter(
                     else word.lowercase().replaceFirstChar { it.uppercase() }
                 }
                 .replace(Regex("(\\d) (\\d)"), "$1-$2")
+
+            val emoji = when {
+                score >= 80 -> "🏆"
+                score >= 60 -> "✅"
+                score >= 40 -> "⚠️"
+                else        -> "🔴"
+            }
+            binding.tvResultScore.text = "$emoji  ${binding.root.context.getString(R.string.score_display, score)}"
+
             binding.root.setOnClickListener { onClick(result) }
         }
     }
@@ -90,6 +157,7 @@ class ResultsAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        val rank = if (showRanks) position + 1 else null
+        holder.bind(getItem(position), rank)
     }
 }

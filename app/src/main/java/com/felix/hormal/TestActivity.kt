@@ -1,6 +1,8 @@
 package com.felix.hormal
 
+import android.content.Context
 import android.content.Intent
+import android.media.AudioManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -117,9 +119,38 @@ class TestActivity : AppCompatActivity() {
         binding.btnStartTest.setOnClickListener {
             hideTestInfo = binding.cbHideInfo.isChecked
             isShortVersion = binding.cbShortVersion.isChecked
-            startTest()
+            checkVolumeAndStart()
         }
     }
+
+    /**
+     * Checks whether the device media volume is at maximum before starting the test.
+     * If not, the user is prompted to set it to the maximum (for consistent results)
+     * or to continue anyway.  This directly addresses the fairness concern raised in
+     * the issue: a lower-than-maximum device volume artificially shifts perceived
+     * loudness and would skew the measured hearing thresholds.
+     */
+    private fun checkVolumeAndStart() {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+
+        if (currentVolume < maxVolume) {
+            AlertDialog.Builder(this)
+                .setTitle(getString(R.string.volume_warning_title))
+                .setMessage(getString(R.string.volume_warning_message, currentVolume, maxVolume))
+                .setPositiveButton(getString(R.string.volume_set_max)) { _, _ ->
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxVolume, 0)
+                    startTest()
+                }
+                .setNegativeButton(getString(R.string.volume_continue_anyway)) { _, _ ->
+                    startTest()
+                }
+                .setCancelable(false)
+                .show()
+        } else {
+            startTest()
+        }
 
     private fun startTest() {
         activeFreqIndices = if (isShortVersion) shortFreqIndices else IntArray(FREQUENCIES.size) { it }
