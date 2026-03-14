@@ -154,6 +154,9 @@ class TestActivity : AppCompatActivity(), VolumeWarningDialogFragment.Listener {
      * Children often swipe (drag) their finger instead of tapping precisely.
      * The touch listener intercepts all touch events so that any ACTION_UP — whether
      * from a tap or a swipe — is treated as a valid button press via [handleHeardButtonPress].
+     * [requestDisallowInterceptTouchEvent] is called on ACTION_DOWN so the parent
+     * [ScrollView] cannot steal the touch sequence as a scroll gesture; this guarantees
+     * ACTION_UP (not ACTION_CANCEL) is delivered even when the finger moves.
      * The paired [setOnClickListener] keeps the accessibility contract correct (screen
      * readers and assistive services can still activate the button via performClick).
      */
@@ -166,6 +169,7 @@ class TestActivity : AppCompatActivity(), VolumeWarningDialogFragment.Listener {
         binding.btnHeard.setOnTouchListener { v, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    v.parent.requestDisallowInterceptTouchEvent(true)
                     v.isPressed = true
                     true   // capture subsequent move/up events
                 }
